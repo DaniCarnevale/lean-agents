@@ -1,4 +1,4 @@
-<!-- lean-agents:generated v0.1.0 — editá orchestration.toml y corré `npx lean-agents sync`; no edites este archivo a mano -->
+<!-- lean-agents:generated v0.2.0 — editá orchestration.toml y corré `npx lean-agents sync`; no edites este archivo a mano -->
 # sts-to-tts-multilingual
 
 POC local de traducción de voz es↔en: captura → STT → traducción → TTS, con perfiles mock, local e hybrid.
@@ -27,16 +27,16 @@ Si no podés correrlos, decí por qué y qué quedó sin verificar.
 
 - Estado y continuidad: `docs/STATUS.md`.
 - Evidencia de validación: `docs/VALIDATION.md`. Solo con resultados reales.
-- Decisiones de arquitectura: `docs/adr/` (ver `$adr`).
+- Decisiones de arquitectura: `docs/adr/` (skill `adr`).
 
 ## Skills
 
-Están en `.agents/skills/`. Leé el `SKILL.md` antes de aplicar una.
+Están en `.claude/skills/` y `.agents/skills/` y se invocan con `/<nombre>` en Claude Code y `$<nombre>` en Codex. Leé el `SKILL.md` antes de aplicar una.
 
-- `$intake`: convertir un pedido nuevo en un borrador para aprobar.
-- `$adr`: registrar decisiones de arquitectura durables.
-- `$verify`: verificar un cambio antes de cerrarlo.
-- `$contract-first`: cambiar interfaces compartidas empezando por el contrato.
+- `intake`: convertir un pedido nuevo en un borrador para aprobar.
+- `adr`: registrar decisiones de arquitectura durables.
+- `verify`: verificar un cambio antes de cerrarlo.
+- `contract-first`: cambiar interfaces compartidas empezando por el contrato.
 
 ---
 
@@ -81,11 +81,11 @@ Cada subagente hace una sola pasada. Si falta un dato verificable, se permite un
 
 ### Relevamiento de pedidos
 
-Ante un pedido nuevo que cambia comportamiento y es ambiguo o grande, aplicá vos mismo la skill `$intake` (no la delegues): mostrá el borrador y esperá aprobación. Si el pedido es claro y acotado, o el usuario escribe `APROBADO` o "sin relevamiento", implementá directamente. Preguntas, estado y revisiones nunca pasan por relevamiento.
+Ante un pedido nuevo que cambia comportamiento y es ambiguo o grande, aplicá vos mismo la skill `intake` (no la delegues): mostrá el borrador y esperá aprobación. Si el pedido es claro y acotado, o el usuario escribe `APROBADO` o "sin relevamiento", implementá directamente. Preguntas, estado y revisiones nunca pasan por relevamiento.
 
 ### Decisiones
 
-Cuando aparece una decisión durable (tecnología, protocolo, estructura), proponé un ADR con `$adr` y escribilo solo tras aprobación. No hagas ADRs por cada bug o commit.
+Cuando aparece una decisión durable (tecnología, protocolo, estructura), proponé un ADR con la skill `adr` y escribilo solo tras aprobación. No hagas ADRs por cada bug o commit.
 
 ### Palabras clave
 
@@ -97,9 +97,9 @@ Se reconocen solo como instrucción independiente, con o sin tilde. Es una conve
 
 ### Roles disponibles
 
-| rol | para qué | escribe archivos | modelo |
+| rol | para qué | escribe archivos | modelo (Claude Code · Codex) |
 |---|---|---|---|
-| `reviewer` | revisión técnica independiente; encuentra problemas, no los arregla | no | gpt-6-sol (high) |
-| `explorer` | búsquedas y lectura de código/logs; devuelve conclusiones con rutas | no | gpt-6-luna (medium) |
-| `ui_auditor` | auditoría de UI, estados y accesibilidad | no | gpt-6-luna (high) |
-| `speech_audio` | Especialista del pipeline de voz: STT, traducción, TTS, PCM, VAD, remuestreo, AudioWorklet, colas, backpressure, latencia, RTF y licencias de modelos y voces. | sí | gpt-6.1-sol (high) |
+| `reviewer` | revisión técnica independiente; encuentra problemas, no los arregla | no | sonnet (high) · gpt-6-sol (high) |
+| `explorer` | búsquedas y lectura de código/logs; devuelve conclusiones con rutas | no | haiku (medium) · gpt-6-luna (medium) |
+| `ui_auditor` | auditoría de UI, estados y accesibilidad | no | haiku (high) · gpt-6-luna (high) |
+| `speech_audio` | Especialista del pipeline de voz: STT, traducción, TTS, PCM, VAD, remuestreo, AudioWorklet, colas, backpressure, latencia, RTF y licencias de modelos y voces. | sí | opus (high) · gpt-6.1-sol (high) |

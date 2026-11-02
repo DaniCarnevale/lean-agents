@@ -1,7 +1,7 @@
 import { GENERATED_MARK, VERSION } from "../version.js";
 
 // Original, short skills. They are deliberately generic: project specifics come
-// from AGENTS.md (verify commands, docs paths, sources of truth).
+// from the project instructions, AGENTS.md or CLAUDE.md (verify commands, docs paths, sources of truth).
 
 const SKILLS = {
   intake: {
@@ -13,7 +13,7 @@ const SKILLS = {
 Lo aplica el director, en el mismo turno; no es un subagente.
 
 1. Extraé solo lo que el usuario dijo o autorizó. No agregues funcionalidades, tecnologías, fechas, prioridades ni supuestos.
-2. Mirá el contexto del proyecto solo para detectar conflictos con las fuentes de verdad de AGENTS.md.
+2. Mirá el contexto del proyecto solo para detectar conflictos con las fuentes de verdad de las instrucciones del proyecto.
 3. Mostrá el borrador, que tiene que entrar en una pantalla:
 
 \`\`\`text
@@ -40,7 +40,7 @@ Si falta información, escribí \`pendiente\` o hacé una pregunta corta. Nunca 
 Applied by the director in the same turn; this is not a subagent.
 
 1. Extract only what the user said or authorized. Do not add features, technologies, dates, priorities or assumptions.
-2. Look at project context only to detect conflicts with the sources of truth in AGENTS.md.
+2. Look at project context only to detect conflicts with the sources of truth in the project instructions.
 3. Show the draft; it must fit on one screen:
 
 \`\`\`text
@@ -67,7 +67,7 @@ If information is missing, write \`pending\` or ask a short question. Never turn
         "Proponer y mantener Architecture Decision Records (ADR) con contexto, decisión, alternativas y consecuencias, más su índice. Usar ante una decisión técnica durable (tecnología, protocolo, estructura) o cuando alguien pregunta por qué el sistema es así. No usar para bugs, tareas o cada commit.",
       body: `# Architecture Decision Records
 
-La carpeta de ADRs está indicada en AGENTS.md (por defecto \`docs/adr/\`), con un índice en \`README.md\` dentro de ella.
+La carpeta de ADRs está indicada en las instrucciones del proyecto (por defecto \`docs/adr/\`), con un índice en \`README.md\` dentro de ella.
 
 **Cuándo sí:** elegir o reemplazar una tecnología, un protocolo, un formato compartido, una estructura del sistema, o aceptar un trade-off que alguien va a querer entender dentro de meses.
 **Cuándo no:** bugs, tareas, mediciones aisladas, cambios de copy, cada commit.
@@ -107,7 +107,7 @@ Actualizá el índice con número, título y estado. Una sola fuente: no dupliqu
         "Propose and maintain Architecture Decision Records (ADRs) with context, decision, alternatives and consequences, plus their index. Use for a durable technical decision (technology, protocol, structure) or when someone asks why the system is shaped this way. Not for bugs, tasks or every commit.",
       body: `# Architecture Decision Records
 
-The ADR folder is named in AGENTS.md (default \`docs/adr/\`), with an index in its \`README.md\`.
+The ADR folder is named in the project instructions (default \`docs/adr/\`), with an index in its \`README.md\`.
 
 **Use it for:** choosing or replacing a technology, a protocol, a shared format, a system structure, or accepting a trade-off someone will want to understand months from now.
 **Not for:** bugs, tasks, one-off measurements, copy changes, every commit.
@@ -150,7 +150,7 @@ Update the index with number, title and status. One source of truth: do not dupl
         "Verificar un cambio antes de darlo por terminado: correr los comandos de verificación del proyecto, revisar el diff y reportar qué se comprobó y qué no. Usar al cerrar una feature, un fix o antes de un commit o PR.",
       body: `# Verificación
 
-1. Corré los comandos de la sección "Verificación" de AGENTS.md, en ese orden. Si no hay, usá los tests existentes más cercanos al cambio.
+1. Corré los comandos de la sección "Verificación" de las instrucciones del proyecto, en ese orden. Si no hay, usá los tests existentes más cercanos al cambio.
 2. Si un comando falla, no sigas acumulando cambios: diagnosticá, arreglá y volvé a correr.
 3. Revisá el diff completo (\`git diff\`, incluidos archivos nuevos): código muerto, debug olvidado, secretos, cambios fuera de alcance, archivos generados o binarios que no deberían estar.
 4. Comprobá que los criterios de aceptación (del encargo o del relevamiento aprobado) se cumplen uno por uno.
@@ -172,7 +172,7 @@ Nunca digas que algo pasa sin haberlo corrido en esta sesión. Si una prueba dep
         "Verify a change before calling it done: run the project's verification commands, review the diff and report what was and was not checked. Use when closing a feature or fix, or before a commit or PR.",
       body: `# Verification
 
-1. Run the commands in the "Verification" section of AGENTS.md, in order. If there are none, run the existing tests closest to the change.
+1. Run the commands in the "Verification" section of the project instructions, in order. If there are none, run the existing tests closest to the change.
 2. If a command fails, stop piling up changes: diagnose, fix and rerun.
 3. Review the full diff (\`git diff\`, new files included): dead code, leftover debugging, secrets, out-of-scope changes, generated or binary files that should not be there.
 4. Check the acceptance criteria (from the brief or the approved intake) one by one.
@@ -197,7 +197,7 @@ Never claim something passes unless you ran it in this session. If a check needs
         "Cambiar interfaces compartidas (OpenAPI, JSON Schema, eventos, formatos binarios) empezando por un contrato único y verificable, y después proveedor y consumidores. Usar cuando un cambio cruza frontend/backend o servicios.",
       body: `# Contract-first
 
-1. Identificá el contrato que gobierna la frontera (las fuentes de verdad de AGENTS.md). Si no hay uno, proponé crearlo antes de tocar código.
+1. Identificá el contrato que gobierna la frontera (las fuentes de verdad de las instrucciones del proyecto). Si no hay uno, proponé crearlo antes de tocar código.
 2. Cambiá primero el contrato. Preferí cambios compatibles: campos nuevos opcionales, valores de enum nuevos tolerados. Si es incompatible, decilo explícitamente y versioná.
 3. Regenerá o actualizá tipos, validadores y mocks **desde** el contrato, no a mano en cada lado.
 4. Actualizá proveedor y consumidores en el mismo cambio, o dejá documentado cuál queda pendiente.
@@ -212,7 +212,7 @@ Un solo dueño por contrato: el director. Si sos un subagente y el cambio requie
         "Change shared interfaces (OpenAPI, JSON Schema, events, binary formats) starting from one authoritative, checkable contract, then provider and consumers. Use when a change crosses frontend/backend or service boundaries.",
       body: `# Contract-first
 
-1. Identify the contract that governs the boundary (the sources of truth in AGENTS.md). If there is none, propose one before touching code.
+1. Identify the contract that governs the boundary (the sources of truth in the project instructions). If there is none, propose one before touching code.
 2. Change the contract first. Prefer compatible changes: new optional fields, tolerated new enum values. If it is breaking, say so explicitly and version it.
 3. Regenerate or update types, validators and mocks **from** the contract, not by hand on each side.
 4. Update provider and consumers in the same change, or document which one is pending.

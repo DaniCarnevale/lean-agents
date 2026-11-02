@@ -1,4 +1,4 @@
-# lean-agents:generated v0.1.0 — editá orchestration.toml y corré `npx lean-agents sync`
+# lean-agents:generated v0.2.0 — editá orchestration.toml y corré `npx lean-agents sync`
 # Director (root session).
 model = "gpt-6.1-sol"
 model_reasoning_effort = "high"

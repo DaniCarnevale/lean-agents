@@ -14,15 +14,16 @@ const c = (code) => (s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : String(s));
 const red = c(31), yellow = c(33), cyan = c(36), dim = c(2), bold = c(1), green = c(32);
 
 const HELP = `lean-agents ${VERSION}
-A lean, director-first orchestration standard for Codex subagents.
+Director-first agent setup for Claude Code and Codex.
 
 Usage:
   lean-agents init [dir]     Create orchestration.toml (detects stack) and generate files
   lean-agents sync [dir]     Regenerate files from orchestration.toml
-  lean-agents doctor [dir]   Lint any Codex agent setup (lean-agents or not)
+  lean-agents doctor [dir]   Lint any Claude Code / Codex agent setup (lean-agents or not)
   lean-agents presets        List presets and model aliases
 
 Options:
+  --target <tool>     init: claude | codex | both (default: detected, else both)
   --preset <name>     init: ${Object.keys(PRESETS).join(" | ")}
   --lang <es|en>      init: language of generated instructions (default: en)
   --name <name>       init: project name (default: folder name)
@@ -43,7 +44,7 @@ function parseArgs(argv) {
     else if (a === "-h" || a === "--help") opts.help = true;
     else if (a === "-v" || a === "--version") opts.version = true;
     else if (["--dry-run", "--force", "--json", "--strict"].includes(a)) opts[a.slice(2).replace("-r", "R")] = true;
-    else if (["--preset", "--lang", "--name"].includes(a)) opts[a.slice(2)] = argv[++i];
+    else if (["--preset", "--lang", "--name", "--target"].includes(a)) opts[a.slice(2)] = argv[++i];
     else if (a.startsWith("--") && a.includes("=")) {
       const [k, v] = a.slice(2).split("=");
       opts[k] = v;
@@ -88,7 +89,14 @@ async function cmdInit(root, opts) {
     throw new Error(`${CONFIG_FILE} already exists. Edit it and run \`lean-agents sync\` instead.`);
   }
   const detected = detectProject(root);
+  const targetChoice = (list) => (list.length === 2 ? "both" : list[0]);
+  const parseTarget = (value) => {
+    if (value === "both") return ["claude", "codex"];
+    if (value === "claude" || value === "codex") return [value];
+    throw new Error(`Unknown target "${value}". Use claude, codex or both.`);
+  };
   const answers = {
+    targets: opts.target ? parseTarget(opts.target) : detected.targets,
     name: opts.name ?? detected.name,
     language: opts.lang ?? "en",
     preset: opts.preset ?? detected.preset,
@@ -99,6 +107,9 @@ async function cmdInit(root, opts) {
   if (!opts.yes && process.stdin.isTTY) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     try {
+      if (!opts.target) {
+        answers.targets = parseTarget(await ask(rl, "Which tool will use these agents?", targetChoice(answers.targets), ["claude", "codex", "both"]));
+      }
       answers.name = await ask(rl, "Project name", answers.name);
       answers.language = await ask(rl, "Instruction language", answers.language, ["en", "es"]);
       for (const [k, p] of Object.entries(PRESETS)) console.log(dim(`  ${k}: ${p.description}`));
@@ -111,6 +122,7 @@ async function cmdInit(root, opts) {
   if (!["en", "es"].includes(answers.language)) throw new Error(`Unknown language "${answers.language}".`);
 
   console.log(bold(`\nDetected for ${answers.name}:`));
+  console.log(`  tools:            ${answers.targets.map((t) => (t === "claude" ? "Claude Code" : "Codex")).join(" + ")}`);
   console.log(`  verify:           ${answers.verify.join(", ") || dim("(none found — add them to project.verify)")}`);
   console.log(`  sources of truth: ${answers.sources.join(", ") || dim("(none found)")}`);
   console.log(`  preset:           ${answers.preset}\n`);
@@ -167,8 +179,11 @@ function cmdPresets() {
     console.log(`  ${k.padEnd(14)} ${p.description}`);
     console.log(dim(`  ${"".padEnd(14)} roles: ${p.roles.join(", ")} · skills: ${p.skills.join(", ")}`));
   }
-  console.log(bold(`\nModel aliases (updated ${ALIASES_UPDATED}; override in [models.aliases])`));
-  for (const [k, v] of Object.entries(DEFAULT_ALIASES)) console.log(`  ${k.padEnd(14)} ${v}`);
+  console.log(bold(`\nModel aliases (updated ${ALIASES_UPDATED}; override in [models.aliases.<tool>])`));
+  console.log(dim(`  ${"alias".padEnd(14)} ${"claude".padEnd(14)} codex`));
+  for (const k of Object.keys(DEFAULT_ALIASES.claude)) {
+    console.log(`  ${k.padEnd(14)} ${DEFAULT_ALIASES.claude[k].padEnd(14)} ${DEFAULT_ALIASES.codex[k]}`);
+  }
   return 0;
 }
 

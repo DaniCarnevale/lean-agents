@@ -1,9 +1,10 @@
 # lean-agents configuration. Edit this file and run `npx lean-agents sync`.
 #
-# Real-world example: a local speech-to-speech translation POC
-# (FastAPI + WebSocket backend, React frontend, faster-whisper / Argos / Piper).
-# It replaces a 7-role setup with director + 3 read-only helpers + 1 specialist.
+# Example: a local speech-to-speech translation POC (FastAPI + WebSocket
+# backend, React frontend, faster-whisper / Argos / Piper), set up for both
+# Claude Code and Codex: a director, three read-only helpers and one specialist.
 schema = 1
+targets = ["claude", "codex"]
 language = "es"
 preset = "web-fullstack"
 

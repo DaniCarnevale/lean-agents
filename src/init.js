@@ -80,7 +80,13 @@ export function detectProject(root) {
   if (exists(root, "docs/VALIDATION.md")) docs.validation = "docs/VALIDATION.md";
   if (exists(root, "docs/adr")) docs.adr = "docs/adr";
 
+  // Which coding tool the repo already uses, if any.
+  const usesClaude = exists(root, "CLAUDE.md") || exists(root, ".claude");
+  const usesCodex = exists(root, ".codex") || exists(root, "AGENTS.md");
+  const targets = usesClaude && !usesCodex ? ["claude"] : usesCodex && !usesClaude ? ["codex"] : ["claude", "codex"];
+
   return {
+    targets,
     name: path.basename(path.resolve(root)),
     verify,
     sources,
@@ -94,26 +100,30 @@ const COMMENTS = {
     head: "# Configuración de lean-agents. Editá este archivo y corré `npx lean-agents sync`.",
     rules: "# Reglas que todo agente debe respetar en este proyecto (una por línea).",
     verify: "# Comandos que prueban que un cambio funciona.",
-    models: "# Alias: strong | balanced | fast, o un id concreto de modelo.",
+    targets: "# Herramientas para las que se generan archivos: \"claude\" (Claude Code), \"codex\" o ambas.",
+    models: "# Alias: strong | balanced | fast. Se traducen al modelo de cada herramienta (ver `lean-agents presets`).\n# Para un modelo concreto con varias herramientas: director = { claude = \"opus\", codex = \"gpt-6.1-sol\" }",
     roles: "# Roles extra. Ejemplo de especialista (descomentá y adaptá):",
   },
   en: {
     head: "# lean-agents configuration. Edit this file and run `npx lean-agents sync`.",
     rules: "# Rules every agent must follow in this project (one per line).",
     verify: "# Commands that prove a change works.",
-    models: "# Aliases: strong | balanced | fast, or a concrete model id.",
+    targets: "# Tools to generate files for: \"claude\" (Claude Code), \"codex\" or both.",
+    models: "# Aliases: strong | balanced | fast. Each one maps to a model per tool (see `lean-agents presets`).\n# For a concrete model with several tools: director = { claude = \"opus\", codex = \"gpt-6.1-sol\" }",
     roles: "# Extra roles. Specialist example (uncomment and adapt):",
   },
 };
 
 const tomlList = (items) => (items.length ? `[\n${items.map((i) => `  ${str(i)},`).join("\n")}\n]` : "[]");
 
-export function renderOrchestrationToml({ name, language, preset, verify, sources, docs, summary = "" }) {
+export function renderOrchestrationToml({ name, language, preset, verify, sources, docs, targets = ["claude", "codex"], summary = "" }) {
   const c = COMMENTS[language];
   const p = PRESETS[preset];
   const docLines = Object.entries(docs).map(([k, v]) => `${k} = ${str(v)}`);
   return `${c.head}
 schema = 1
+${c.targets}
+targets = [${targets.map(str).join(", ")}]
 language = ${str(language)}   # es | en
 preset = ${str(preset)}   # ${Object.keys(PRESETS).join(" | ")}
 

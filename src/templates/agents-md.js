@@ -17,9 +17,10 @@ const T = {
     docsTitle: "Documentación",
     docsStatus: (p) => `Estado y continuidad: \`${p}\`.`,
     docsValidation: (p) => `Evidencia de validación: \`${p}\`. Solo con resultados reales.`,
-    docsAdr: (p) => `Decisiones de arquitectura: \`${p}/\` (ver \`$adr\`).`,
+    docsAdr: (p) => `Decisiones de arquitectura: \`${p}/\` (skill \`adr\`).`,
     skillsTitle: "Skills",
-    skillsIntro: "Están en `.agents/skills/`. Leé el `SKILL.md` antes de aplicar una.",
+    skillsIntro: (paths, invoke) => `Están en ${paths} y se invocan con ${invoke}. Leé el \`SKILL.md\` antes de aplicar una.`,
+    skillsInvoke: { codex: "`$<nombre>` en Codex", claude: "`/<nombre>` en Claude Code" },
     skillDesc: {
       intake: "convertir un pedido nuevo en un borrador para aprobar",
       adr: "registrar decisiones de arquitectura durables",
@@ -53,11 +54,11 @@ const T = {
       "Cada subagente hace una sola pasada. Si falta un dato verificable, se permite un único follow-up. Sin reintentos automáticos ni rondas de \"mejorá la respuesta\". Un HANDOFF es una afirmación, no evidencia: verificá lo importante vos.",
     intakeTitle: "Relevamiento de pedidos",
     intakeAsk:
-      "Ante un pedido nuevo que cambia comportamiento y es ambiguo o grande, aplicá vos mismo la skill `$intake` (no la delegues): mostrá el borrador y esperá aprobación. Si el pedido es claro y acotado, o el usuario escribe `APROBADO` o \"sin relevamiento\", implementá directamente. Preguntas, estado y revisiones nunca pasan por relevamiento.",
+      "Ante un pedido nuevo que cambia comportamiento y es ambiguo o grande, aplicá vos mismo la skill `intake` (no la delegues): mostrá el borrador y esperá aprobación. Si el pedido es claro y acotado, o el usuario escribe `APROBADO` o \"sin relevamiento\", implementá directamente. Preguntas, estado y revisiones nunca pasan por relevamiento.",
     intakeAlways:
-      "Ante todo pedido nuevo que cambie comportamiento, alcance o criterios, aplicá vos mismo la skill `$intake` y esperá aprobación explícita antes de implementar. Preguntas, estado y revisiones no pasan por relevamiento.",
+      "Ante todo pedido nuevo que cambie comportamiento, alcance o criterios, aplicá vos mismo la skill `intake` y esperá aprobación explícita antes de implementar. Preguntas, estado y revisiones no pasan por relevamiento.",
     adrTitle: "Decisiones",
-    adr: "Cuando aparece una decisión durable (tecnología, protocolo, estructura), proponé un ADR con `$adr` y escribilo solo tras aprobación. No hagas ADRs por cada bug o commit.",
+    adr: "Cuando aparece una decisión durable (tecnología, protocolo, estructura), proponé un ADR con la skill `adr` y escribilo solo tras aprobación. No hagas ADRs por cada bug o commit.",
     kwTitle: "Palabras clave",
     kw: [
       "`ORQUESTACIÓN SOLO`: no delegues en este turno.",
@@ -67,7 +68,7 @@ const T = {
     kwNote:
       "Se reconocen solo como instrucción independiente, con o sin tilde. Es una convención de conversación: si no estás seguro del modo (por ejemplo, después de compactar el contexto), asumí OFF.",
     rolesTitle: "Roles disponibles",
-    rolesHead: "| rol | para qué | escribe archivos | modelo |",
+    rolesHead: (tools) => `| rol | para qué | escribe archivos | modelo (${tools}) |`,
     yes: "sí",
     no: "no",
     roleDesc: {
@@ -92,9 +93,10 @@ const T = {
     docsTitle: "Documentation",
     docsStatus: (p) => `Status and continuity: \`${p}\`.`,
     docsValidation: (p) => `Validation evidence: \`${p}\`. Real results only.`,
-    docsAdr: (p) => `Architecture decisions: \`${p}/\` (see \`$adr\`).`,
+    docsAdr: (p) => `Architecture decisions: \`${p}/\` (skill \`adr\`).`,
     skillsTitle: "Skills",
-    skillsIntro: "They live in `.agents/skills/`. Read the `SKILL.md` before applying one.",
+    skillsIntro: (paths, invoke) => `They live in ${paths}; invoke them with ${invoke}. Read the \`SKILL.md\` before applying one.`,
+    skillsInvoke: { codex: "`$<name>` in Codex", claude: "`/<name>` in Claude Code" },
     skillDesc: {
       intake: "turn a new request into a draft for approval",
       adr: "record durable architecture decisions",
@@ -128,11 +130,11 @@ const T = {
       "Each subagent gets one pass. One follow-up is allowed only if a verifiable fact is missing. No automatic retries or \"improve your answer\" rounds. A HANDOFF is a claim, not evidence: verify what matters yourself.",
     intakeTitle: "Request intake",
     intakeAsk:
-      "For a new request that changes behavior and is ambiguous or large, apply the `$intake` skill yourself (do not delegate it): show the draft and wait for approval. If the request is clear and small, or the user writes `APPROVED` or \"skip intake\", implement directly. Questions, status and reviews never go through intake.",
+      "For a new request that changes behavior and is ambiguous or large, apply the skill `intake` yourself (do not delegate it): show the draft and wait for approval. If the request is clear and small, or the user writes `APPROVED` or \"skip intake\", implement directly. Questions, status and reviews never go through intake.",
     intakeAlways:
-      "For every new request that changes behavior, scope or criteria, apply the `$intake` skill yourself and wait for explicit approval before implementing. Questions, status and reviews skip intake.",
+      "For every new request that changes behavior, scope or criteria, apply the skill `intake` yourself and wait for explicit approval before implementing. Questions, status and reviews skip intake.",
     adrTitle: "Decisions",
-    adr: "When a durable decision appears (technology, protocol, structure), propose an ADR with `$adr` and write it only after approval. No ADRs per bug or commit.",
+    adr: "When a durable decision appears (technology, protocol, structure), propose an ADR with the skill `adr` and write it only after approval. No ADRs per bug or commit.",
     kwTitle: "Keywords",
     kw: [
       "`ORCHESTRATION SOLO`: do not delegate this turn.",
@@ -142,7 +144,7 @@ const T = {
     kwNote:
       "Recognized only as a standalone instruction. This is a conversation convention: if you are unsure of the mode (e.g. after context compaction), assume OFF.",
     rolesTitle: "Available roles",
-    rolesHead: "| role | purpose | writes files | model |",
+    rolesHead: (tools) => `| role | purpose | writes files | model (${tools}) |`,
     yes: "yes",
     no: "no",
     roleDesc: {
@@ -166,6 +168,9 @@ const HANDOFF_BLOCK = (lang) =>
     "next: …",
     "```",
   ].join("\n");
+
+export const TOOL_NAMES = { codex: "Codex", claude: "Claude Code" };
+export const SKILL_DIRS = { codex: ".agents/skills", claude: ".claude/skills" };
 
 export function renderAgentsMd(cfg) {
   const t = T[cfg.language];
@@ -202,8 +207,10 @@ export function renderAgentsMd(cfg) {
     out.push("");
   }
 
-  out.push(`## ${t.skillsTitle}`, "", t.skillsIntro, "");
-  for (const s of skills) out.push(`- \`$${s}\`: ${t.skillDesc[s]}.`);
+  const skillPaths = cfg.targets.map((tg) => `\`${SKILL_DIRS[tg]}/\``).join(cfg.language === "es" ? " y " : " and ");
+  const invoke = cfg.targets.map((tg) => t.skillsInvoke[tg]).join(cfg.language === "es" ? " y " : " or ");
+  out.push(`## ${t.skillsTitle}`, "", t.skillsIntro(skillPaths, invoke), "");
+  for (const s of skills) out.push(`- \`${s}\`: ${t.skillDesc[s]}.`);
   out.push("");
 
   out.push("---", "", `## ${t.orchTitle}`, "", `> ${t.guard}`, "", t.director, "");
@@ -232,12 +239,43 @@ export function renderAgentsMd(cfg) {
     out.push("", t.kwNote, "");
   }
 
-  out.push(`### ${t.rolesTitle}`, "", t.rolesHead, "|---|---|---|---|");
+  out.push(`### ${t.rolesTitle}`, "", t.rolesHead(cfg.targets.map((tg) => TOOL_NAMES[tg]).join(" · ")), "|---|---|---|---|");
   for (const r of roles) {
     const desc = r.builtin ? t.roleDesc[r.name] : r.description;
     const writes = r.sandbox === "read-only" ? t.no : t.yes;
-    out.push(`| \`${r.name}\` | ${desc.replace(/\|/g, "\\|")} | ${writes} | ${r.model} (${r.effort}) |`);
+    const model = cfg.targets.map((tg) => `${r.model[tg]} (${r.effort[tg]})`).join(" · ");
+    out.push(`| \`${r.name}\` | ${desc.replace(/\|/g, "\\|")} | ${writes} | ${model} |`);
   }
   out.push("");
   return out.join("\n");
+}
+
+const CLAUDE_T = {
+  es: {
+    header: "editá orchestration.toml y corré `npx lean-agents sync`; no edites este archivo a mano",
+    title: "Claude Code",
+    notes: [
+      "Los subagentes de este proyecto están en `.claude/agents/` y las skills en `.claude/skills/` (se invocan con `/<nombre>`).",
+      "Los roles de solo lectura no tienen terminal ni herramientas de escritura; las verificaciones que requieren ejecutar comandos las hacés vos.",
+    ],
+  },
+  en: {
+    header: "edit orchestration.toml and run `npx lean-agents sync`; do not edit this file by hand",
+    title: "Claude Code",
+    notes: [
+      "This project's subagents live in `.claude/agents/` and its skills in `.claude/skills/` (invoke them with `/<name>`).",
+      "Read-only roles have no terminal or write tools; you run the checks that need commands.",
+    ],
+  },
+};
+
+// With Codex as well, CLAUDE.md imports AGENTS.md so both tools share one source.
+// Claude-only projects get the full instructions directly in CLAUDE.md.
+export function renderClaudeMd(cfg) {
+  const t = CLAUDE_T[cfg.language];
+  const notes = ["", `## ${t.title}`, "", ...t.notes.map((n) => `- ${n}`), ""];
+  if (cfg.targets.includes("codex")) {
+    return [`<!-- ${GENERATED_MARK} v${VERSION} — ${t.header} -->`, "@AGENTS.md", ...notes].join("\n");
+  }
+  return renderAgentsMd(cfg).replace(/\n$/, "") + "\n" + notes.join("\n");
 }

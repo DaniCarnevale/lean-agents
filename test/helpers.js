@@ -28,6 +28,7 @@ export function baseAnswers(overrides = {}) {
     verify: ["npm test"],
     sources: ["contracts/"],
     docs: {},
+    targets: ["claude", "codex"],
     ...overrides,
   };
 }

@@ -30,22 +30,43 @@ test("rejects unknown presets, bad modes and bad roles", () => {
   }
 });
 
-test("aliases resolve to concrete models and can be overridden", () => {
-  const cfg = normalizeConfig({ models: { director: "strong", aliases: { strong: "my-model" } } });
-  assert.equal(cfg.director.model, "my-model");
+test("aliases resolve per tool and can be overridden", () => {
+  const cfg = normalizeConfig({ targets: ["claude", "codex"], models: { director: "strong", aliases: { codex: { strong: "my-model" } } } });
+  assert.equal(cfg.director.model.codex, "my-model");
+  assert.equal(cfg.director.model.claude, "opus");
   const reviewer = cfg.roles.find((r) => r.name === "reviewer");
-  assert.equal(reviewer.model, DEFAULT_ALIASES.balanced);
+  assert.equal(reviewer.model.codex, DEFAULT_ALIASES.codex.balanced);
+  assert.equal(reviewer.model.claude, "sonnet");
+});
+
+test("concrete model ids need a per-tool table when several tools are targeted", () => {
+  assert.match(problemsOf({ targets: ["claude", "codex"], models: { director: "gpt-6.1-sol" } }).join(), /concrete model id/);
+  const cfg = normalizeConfig({ targets: ["claude", "codex"], models: { director: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol" } } });
+  assert.deepEqual(cfg.director.model, { claude: "claude-opus-5-5", codex: "gpt-6.1-sol" });
+  assert.equal(normalizeConfig({ targets: ["codex"], models: { director: "gpt-6-sol" } }).director.model.codex, "gpt-6-sol");
+});
+
+test("old configs without targets stay Codex-only; unknown tools are rejected", () => {
+  assert.deepEqual(normalizeConfig({}).targets, ["codex"]);
+  assert.match(problemsOf({ targets: ["cursor"] }).join(), /unknown tool "cursor"/);
+});
+
+test("effort levels map to what each tool accepts", () => {
+  const cfg = normalizeConfig({ targets: ["claude", "codex"], roles: { reviewer: { effort: "max" }, explorer: { effort: "minimal" } } });
+  assert.deepEqual(cfg.roles.find((r) => r.name === "reviewer").effort, { claude: "max", codex: "xhigh" });
+  assert.deepEqual(cfg.roles.find((r) => r.name === "explorer").effort, { claude: "low", codex: "minimal" });
 });
 
 test("roles can be disabled and custom specialists added", () => {
   const cfg = normalizeConfig({
     preset: "standard",
+    targets: ["codex"],
     roles: { explorer: { enabled: false }, speech_audio: { description: "Audio pipeline specialist.", focus: ["PCM"], model: "fast" } },
   });
   assert.deepEqual(cfg.roles.map((r) => r.name), ["reviewer", "speech_audio"]);
   const sa = cfg.roles.find((r) => r.name === "speech_audio");
   assert.equal(sa.sandbox, "workspace-write");
-  assert.equal(sa.model, DEFAULT_ALIASES.fast);
+  assert.equal(sa.model.codex, DEFAULT_ALIASES.codex.fast);
 });
 
 test("[codex] settings pass through but cannot override managed keys", () => {
@@ -55,6 +76,7 @@ test("[codex] settings pass through but cannot override managed keys", () => {
   assert.equal(out.mcp_servers.docs.command, "docs-mcp");
   assert.equal(out.agents.max_depth, 1);
   assert.match(problemsOf({ codex: { agents: { max_threads: 5 } } }).join(), /managed by lean-agents/);
+  assert.match(problemsOf({ targets: ["claude"], claude: { model: "opus" } }).join(), /managed by lean-agents/);
 });
 
 for (const preset of Object.keys(PRESETS)) {

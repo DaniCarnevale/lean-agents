@@ -4,14 +4,16 @@ import crypto from "node:crypto";
 import { renderAll } from "./render.js";
 import { VERSION } from "./version.js";
 
-export const LOCK_FILE = ".codex/lean-agents.lock.json";
+export const LOCK_FILE = ".lean-agents.lock.json";
+const LEGACY_LOCK_FILE = ".codex/lean-agents.lock.json"; // v0.1
 
 // Line endings are normalized so a Windows checkout (core.autocrlf) is not
 // mistaken for a hand edit.
 export const hash = (text) => crypto.createHash("sha256").update(String(text).replace(/\r\n/g, "\n")).digest("hex");
 
 export function readLock(root) {
-  const file = path.join(root, LOCK_FILE);
+  let file = path.join(root, LOCK_FILE);
+  if (!fs.existsSync(file)) file = path.join(root, LEGACY_LOCK_FILE);
   if (!fs.existsSync(file)) return { version: null, files: {} };
   try {
     return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -86,9 +88,12 @@ export function sync(root, cfg, { force = false, dryRun = false } = {}) {
         removeEmptyDirs(root, path.dirname(abs));
       }
     }
-    const lockAbs = path.join(root, LOCK_FILE);
-    fs.mkdirSync(path.dirname(lockAbs), { recursive: true });
-    fs.writeFileSync(lockAbs, JSON.stringify(nextLock, null, 2) + "\n");
+    fs.writeFileSync(path.join(root, LOCK_FILE), JSON.stringify(nextLock, null, 2) + "\n");
+    const legacy = path.join(root, LEGACY_LOCK_FILE);
+    if (fs.existsSync(legacy)) {
+      fs.rmSync(legacy);
+      removeEmptyDirs(root, path.dirname(legacy));
+    }
   }
   return actions;
 }

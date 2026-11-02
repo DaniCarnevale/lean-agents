@@ -1,126 +1,172 @@
 # lean-agents
 
-**A lean, director-first orchestration standard for Codex subagents.**
-One config file per project generates `AGENTS.md`, `.codex/config.toml`, custom agents and skills in the places Codex actually reads. `doctor` lints any Codex agent setup, whether or not lean-agents generated it.
+**Director-first agent setup for Claude Code and Codex.**
 
-[Español](README.es.md)
+[Leer en español](README.es.md)
+
+lean-agents sets up a small, disciplined team of AI coding agents in any repository. You answer a few questions, and it generates everything your tool needs: project instructions, subagents, skills and settings, in the places Claude Code and Codex actually read. Then `doctor` checks that the setup works.
 
 ```bash
-npx github:DaniCarnevale/lean-agents init      # detect stack, write orchestration.toml, generate files
-npx github:DaniCarnevale/lean-agents doctor    # lint the setup (works on any repo)
+npx github:DaniCarnevale/lean-agents init --target claude   # Claude Code
+npx github:DaniCarnevale/lean-agents init --target codex    # Codex
+npx github:DaniCarnevale/lean-agents init --target both     # both tools, one shared source
 ```
 
-## Why
+## What you get
 
-Multi-agent setups fail in quiet ways. Here are real mistakes from a production-style repo, all now `doctor` rules:
+- **A director.** Your main session plans, implements and integrates the work. It delegates only when that adds something: an independent review, a read-only search that would clutter its context, or specialist work that is truly separate.
+- **A few helpers with real limits.**
+  - `reviewer`: reviews diffs with fresh context.
+  - `explorer`: cheap read-only searches through code and logs.
+  - `ui_auditor`: UI and accessibility audits.
+  - Any specialists you declare yourself.
 
-| Mistake | What actually happens | Rule |
+  Read-only roles are enforced by the tool's own permissions, not by asking nicely.
+- **Skills for the recurring procedures.**
+  - `intake`: turns a request into a short draft to approve.
+  - `adr`: records architecture decisions.
+  - `verify`: checks a change before closing it.
+  - `contract-first`: changes shared APIs starting from the contract.
+- **One config file**, `orchestration.toml`. You edit it, run `sync`, and every generated file stays consistent.
+- **A linter.** `doctor` validates any Claude Code or Codex agent setup in a repo, whether lean-agents generated it or not, and fits in CI.
+
+## Choose your tool
+
+| | Claude Code | Codex |
 |---|---|---|
-| `AGENTS.override.md` next to `AGENTS.md` | Codex loads only the override; the base rules (privacy, licenses, spending) are silently ignored | `LA010` |
-| Skills in `.codex/skills/` | Codex scans `.agents/skills/`; the skills are never discovered | `LA040` |
-| `[agents] max_concurrent_threads_per_session = 2` | Not a Codex key; the real limit stays at the default of 6 | `LA020` |
-| Reviewer told "do not modify files" | Nothing enforces it without `sandbox_mode = "read-only"` | `LA035` |
-| Director protocol in `AGENTS.md` | Subagents read it too, and may route work to intake or refuse to implement | `LA012` |
-| Director on the fast model, a doc agent on the strongest | The role that plans and integrates gets the least capacity | `LA036` |
+| Project instructions | `CLAUDE.md` | `AGENTS.md` |
+| Subagents | `.claude/agents/*.md` | `.codex/agents/*.toml` |
+| Skills | `.claude/skills/<name>/SKILL.md` (run with `/<name>`) | `.agents/skills/<name>/SKILL.md` (run with `$<name>`) |
+| Settings | `.claude/settings.json` (director model, no nested subagents) | `.codex/config.toml` (director model, `max_threads`, `max_depth = 1`) |
+| Read-only roles | `tools: Read, Grep, Glob` | `sandbox_mode = "read-only"` |
+| Default models (`strong` / `balanced` / `fast`) | `opus` / `sonnet` / `haiku` | `gpt-6.1-sol` / `gpt-6-sol` / `gpt-6-luna` |
 
-More agents is not more quality. Every subagent starts cold and rereads context, so token use grows with each one you add. Handing off tightly coupled work (one contract, three layers) also loses context at every boundary. Delegation pays off in three cases: **independent review with fresh context**, **read-only exploration that would pollute the main context**, and **specialist work that is truly independent**. lean-agents is built around that.
+With `--target both`, `AGENTS.md` holds the instructions and `CLAUDE.md` imports it (`@AGENTS.md`), so both tools follow the same rules. Each tool gets its own agents and skills folders.
 
-## Principles
-
-1. **The director does the work.** The root session implements and integrates. Delegation is the exception and needs a reason.
-2. **Few roles, enforced boundaries.** Reviewers and explorers are `read-only` by sandbox, not by politeness.
-3. **One pass per subagent**, a fixed `HANDOFF` format, at most one follow-up and no retry loops.
-4. **Procedures are skills, not agents.** Intake, ADRs, verification and contract-first run inline in the director's context, loaded on demand.
-5. **Evidence over claims.** Generated rules forbid invented test results, and the `verify` skill reports what ran and what did not.
-6. **Small instructions.** The generated `AGENTS.md` stays well under 8 KB because every agent pays for it on every turn.
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the reasoning.
+If you omit `--target`, `init` asks. Its suggestion is based on what the repo already has: a `CLAUDE.md` or `.claude/` folder points to Claude Code, an `AGENTS.md` or `.codex/` folder points to Codex. You can change tools later: edit `targets` in `orchestration.toml` and run `sync`.
 
 ## Install
 
-Node.js 20+. Codex CLI with subagents enabled.
+Requirements: Node.js 20+, plus Claude Code and/or Codex CLI.
 
 ```bash
-# Private repo: needs Git access to github.com/DaniCarnevale/lean-agents (SSH key or credential manager)
+# Run it once per project, no install needed
 npx github:DaniCarnevale/lean-agents init
 
-# Or pin it as a dev dependency
-npm i -D github:DaniCarnevale/lean-agents#v0.1.0
+# Or keep it as a dev dependency, pinned to a version
+npm i -D github:DaniCarnevale/lean-agents#v0.2.0
 npx lean-agents init
 ```
 
-## Usage
+The repository is private for now. Installing from GitHub needs Git access to it (SSH key or a credential manager).
+
+## Quick start
+
+1. In your project folder, run `npx github:DaniCarnevale/lean-agents init`.
+2. Answer the questions: tool (`claude`, `codex` or `both`), project name, language of the instructions (`en` or `es`) and preset. It detects your test commands and contract folders on its own.
+3. Open `orchestration.toml`. Add your project rules and specialists, and check the `verify` commands.
+4. Run `npx lean-agents sync`, then `npx lean-agents doctor`.
+5. Commit the generated files so everyone who clones the repo gets the same agents.
+
+## Working with the agents
+
+**In Claude Code**
+
+- Start `claude` in the project. Run `/context` to confirm `CLAUDE.md` loaded.
+- Claude delegates on its own, based on each subagent's description. With `delegation = "checkpoints"`, `reviewer` and `explorer` are marked "use proactively". With `explicit`, they run only when you ask.
+- Ask for a role by name (*"use the reviewer subagent on this diff"*), or @-mention it (`@agent-reviewer`) to make sure it runs.
+- Run skills with `/intake`, `/verify`, `/adr`.
+
+**In Codex**
+
+- Start `codex` in the project. Project agents load only when you trust the project.
+- Codex starts subagents only when asked, so ask for them: *"spawn reviewer on the current diff"*.
+- Run skills with `$intake`, `$verify`, `$adr`.
+
+**In both tools**
+
+- Subagents answer with a fixed `HANDOFF` block (status, summary, files, checks, risks, next) after a single pass.
+- New behavior changes go through `intake` when they are ambiguous or large. Write `APPROVED` to approve a draft, or say "skip intake" to go straight to the work.
+- Conversation keywords:
+  - `ORCHESTRATION SOLO`: no delegation in this turn.
+  - `ORCHESTRATION OFF` / `ON`: turns delegation off or on until further notice.
+  - `ORCHESTRATION STATUS`: reports the current mode.
+
+## Commands
 
 ```bash
-lean-agents init [dir]     # create orchestration.toml (asks name, language, preset) and generate files
-lean-agents sync [dir]     # regenerate files after editing orchestration.toml
-lean-agents doctor [dir]   # lint; --json for CI, --strict to fail on warnings
-lean-agents presets        # list presets and model aliases
+lean-agents init [dir]     # ask tool + preset, write orchestration.toml, generate files
+lean-agents sync [dir]     # regenerate after editing orchestration.toml
+lean-agents doctor [dir]   # lint the setup; --json for CI, --strict to fail on warnings
+lean-agents presets        # list presets and model aliases per tool
 ```
 
-`init` and `sync` never overwrite a file they did not create, or one you edited by hand. They show `skip`, and `--force` replaces the file while keeping a `.bak` copy. A lockfile (`.codex/lean-agents.lock.json`) records what was generated. Use `--dry-run` to preview.
+| Option | Applies to | Meaning |
+|---|---|---|
+| `--target claude\|codex\|both` | init | Tool(s) to generate for |
+| `--preset minimal\|standard\|web-fullstack` | init | Starting set of roles and skills |
+| `--lang en\|es` | init | Language of the generated instructions |
+| `--name <name>` | init | Project name (default: folder name) |
+| `-y`, `--yes` | init | Accept detected defaults without questions |
+| `--dry-run` | init, sync | Show the plan, write nothing |
+| `--force` | init, sync | Replace files lean-agents did not create or that you edited (keeps a `.bak`) |
+| `--json`, `--strict` | doctor | Machine-readable output / exit 1 on warnings |
 
-### Generated layout
-
-```
-AGENTS.md                      project rules + verification + director protocol (with a subagent guard)
-orchestration.toml             the only file you edit
-.codex/config.toml             director model, [agents] max_threads / max_depth = 1, your [codex] extras
-.codex/agents/reviewer.toml    read-only independent reviewer
-.codex/agents/explorer.toml    read-only cheap explorer
-.codex/agents/<specialist>.toml
-.agents/skills/{intake,adr,verify,contract-first}/SKILL.md
-```
+`sync` never overwrites a file it did not create, or one you edited by hand, unless you pass `--force`. Generated files are tracked in `.lean-agents.lock.json`.
 
 ## Configuration
 
 ```toml
 schema = 1
-language = "en"            # en | es: language of the generated instructions
-preset = "standard"        # minimal | standard | web-fullstack
+targets = ["claude", "codex"]   # "claude", "codex" or both
+language = "en"                 # en | es
+preset = "standard"             # minimal | standard | web-fullstack
 
 [project]
 name = "my-app"
 summary = "What this repo is, in one line."
 sources_of_truth = ["contracts/", "docs/PLAN.md"]
 rules = ["Never send customer data to third-party APIs without approval."]
-verify = ["pnpm lint", "pnpm test", "uv run pytest"]
+verify = ["pnpm lint", "pnpm test"]
 
 [project.docs]
 status = "docs/STATUS.md"
 adr = "docs/adr"
 
 [models]
-director = "strong"        # alias (strong | balanced | fast) or a concrete model id
-director_effort = "high"
+director = "strong"             # alias, or { claude = "claude-opus-5-5", codex = "gpt-6.1-sol" }
+director_effort = "high"        # minimal | low | medium | high | xhigh | max (mapped per tool)
 
-[models.aliases]           # optional: remap aliases when model names change
-# strong = "gpt-6.1-sol"
+[models.aliases.claude]         # optional: remap an alias for one tool
+# balanced = "sonnet"
 
 [orchestration]
-delegation = "checkpoints" # explicit: only when the user asks | checkpoints: reviewer/explorer on the director's initiative
-max_threads = 2
-intake = "ask"             # off | ask (only ambiguous or large changes) | always
-keywords = true            # ORCHESTRATION SOLO / OFF / ON / STATUS
+delegation = "checkpoints"      # explicit: only when asked | checkpoints: reviewer/explorer at checkpoints
+max_threads = 2                 # parallel subagents
+intake = "ask"                  # off | ask (ambiguous or large changes) | always
+keywords = true                 # ORCHESTRATION SOLO / OFF / ON / STATUS
 
 [roles.reviewer]
 checklist = ["Public API stays backward compatible."]
 
 [roles.explorer]
-enabled = false            # turn off a preset role
+enabled = false                 # turn off a preset role
 
-[roles.payments]           # add a specialist
+[roles.payments]                # add a specialist
 description = "Payments specialist: provider adapters, idempotency, webhooks and reconciliation."
 focus = ["idempotency keys", "webhook signature checks"]
 model = "strong"
 effort = "high"
-sandbox = "workspace-write"
+sandbox = "workspace-write"     # or "read-only"
 instructions = "Never log card data."
+# claude_tools = ["Read", "Grep", "Glob", "Bash"]   # optional explicit tool list for Claude Code
 
-[codex]                    # passed through to .codex/config.toml (MCP servers, approvals, …)
+[claude]                        # merged into .claude/settings.json
+# [claude.permissions]
+# deny = ["Read(./.env)"]
+
+[codex]                         # merged into .codex/config.toml
 # approval_policy = "on-request"
-# [codex.mcp_servers.docs]
-# command = "docs-mcp"
 ```
 
 ### Presets
@@ -131,34 +177,47 @@ instructions = "Never log card data."
 | `standard` | reviewer, explorer | intake, adr, verify | checkpoints, 2 threads |
 | `web-fullstack` | reviewer, explorer, ui_auditor | intake, adr, verify, contract-first | checkpoints, 2 threads |
 
-Model aliases (updated 2026-11): `strong` = `gpt-6.1-sol`, `balanced` = `gpt-6-sol`, `fast` = `gpt-6-luna`. Model catalogs change often; remap them in `[models.aliases]` without touching anything else.
-
 ## doctor
 
-```
-✖ error LA010 override-shadows-agents-md  AGENTS.override.md
-         AGENTS.override.md and AGENTS.md live in the same folder (.). Codex loads only the override, ...
-         fix: Merge both into one file. ...
-```
+`doctor` reads the agent setup of any repo and reports problems with a rule id, the file and a fix. Some examples:
 
-It exits with 1 when there are errors (or warnings, with `--strict`), so it fits in CI. Full rule list: [docs/RULES.md](docs/RULES.md).
+- **Claude Code:**
+  - a `CLAUDE.md` that hides `AGENTS.md`;
+  - subagents without `name` or `description`;
+  - read-only roles that can still write;
+  - subagents that can start their own subagents;
+  - skills Claude Code cannot see.
+- **Codex:**
+  - an `AGENTS.override.md` that hides `AGENTS.md`;
+  - skills in a folder Codex does not scan;
+  - unknown `[agents]` keys;
+  - read-only roles without a sandbox;
+  - instructions over the size limit.
+- **Both:**
+  - a director protocol that subagents also read, with no line telling them to skip it;
+  - a subagent on a stronger model than the director;
+  - generated files that drifted from `orchestration.toml`.
 
 ```yaml
-# .github/workflows/agents.yml
+# CI
 - run: npx github:DaniCarnevale/lean-agents doctor --strict
 ```
 
+The full list is in [docs/RULES.md](docs/RULES.md). It exits with 1 on errors, or also on warnings with `--strict`.
+
 ## Example
 
-[`examples/sts-to-tts`](examples/sts-to-tts) is a speech-translation POC (FastAPI + WebSocket + React + local STT/TTS). It was migrated from 7 agents and 13 skills, 2 errors and 12 warnings in `doctor`, to a director with 3 read-only helpers and 1 specialist, with zero findings.
+[`examples/sts-to-tts`](examples/sts-to-tts) is a complete project configured for both tools: a speech-translation POC with a FastAPI + WebSocket backend and a React frontend. It shows a reviewer checklist, an audio specialist, project rules and the generated files.
 
-## Limitations
+## Good to know
 
-- Codex documents that subagents spawn **when explicitly requested**. `delegation = "checkpoints"` gives the director standing permission in `AGENTS.md`, but whether Codex treats that as a request can depend on the version. If the director never delegates, ask for a role by name ("use reviewer on this diff").
-- Keyword modes (`ORCHESTRATION OFF`) are a conversation convention, not a Codex feature. They can be lost after context compaction, so the instructions tell the director to assume OFF when unsure.
-- The model tier table is a heuristic for `LA036` only. Unknown models are reported as info, never as errors.
-- Measure before you scale. Run the same few real tasks with `ORCHESTRATION OFF` and with delegation, then compare tokens (`/status`), time and review findings.
+- Model names change often. Aliases (`strong`, `balanced`, `fast`) keep your config stable; remap them in `[models.aliases.<tool>]`.
+- The `ORCHESTRATION` keywords are a conversation convention, not a tool feature. The instructions tell the director to assume OFF when it is unsure.
+- In Claude Code, read-only roles have no terminal, so the director runs the checks that need commands. Give a role `claude_tools` if you want it to run them, knowing that Bash can also write.
+- More agents is not more quality. Measure before you scale: run a few real tasks with `ORCHESTRATION OFF` and with delegation, and compare time, tokens and review findings.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the reasoning behind the design.
 
 ## License
 
-MIT © Daniel Carnevale. The skills are original and do not include third-party content.
+MIT © Daniel Carnevale.

@@ -2,12 +2,12 @@
 name: adr
 description: "Proponer y mantener Architecture Decision Records (ADR) con contexto, decisión, alternativas y consecuencias, más su índice. Usar ante una decisión técnica durable (tecnología, protocolo, estructura) o cuando alguien pregunta por qué el sistema es así. No usar para bugs, tareas o cada commit."
 metadata:
-  generator: lean-agents:generated v0.1.0
+  generator: lean-agents:generated v0.2.0
 ---
 
 # Architecture Decision Records
 
-La carpeta de ADRs está indicada en AGENTS.md (por defecto `docs/adr/`), con un índice en `README.md` dentro de ella.
+La carpeta de ADRs está indicada en las instrucciones del proyecto (por defecto `docs/adr/`), con un índice en `README.md` dentro de ella.
 
 **Cuándo sí:** elegir o reemplazar una tecnología, un protocolo, un formato compartido, una estructura del sistema, o aceptar un trade-off que alguien va a querer entender dentro de meses.
 **Cuándo no:** bugs, tareas, mediciones aisladas, cambios de copy, cada commit.

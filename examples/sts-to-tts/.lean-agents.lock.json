@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "files": {
+    "AGENTS.md": "3f2ce5692adc68fe53758746de56f09a72767ef39ffc02758d8a6c6a03b8f5f5",
+    ".codex/config.toml": "0ea40835ae43cca521114e36653fa9184171bdd17f940d57c76cfa49b801ede9",
+    ".codex/agents/reviewer.toml": "bd008a78695ed73422c985137bcd5c0de0c217e015c09629c289ec12d02480d4",
+    ".codex/agents/explorer.toml": "eebbd2f2d811e71ece7e9c783f35b90ce5180a91b206ed66d1c7282a5cde7805",
+    ".codex/agents/ui-auditor.toml": "ebd5bddaeeccd6028985265f4f7b806305be1c8f3ce68d60dcce0c1c98cf802c",
+    ".codex/agents/speech-audio.toml": "5fb27f2998d36018c5e6446daa2f40ae2ebb6a44dff0cf77fc7d3cd22e718b59",
+    "CLAUDE.md": "f6bff3d1475561ac83850ea4e500fadab5d99d3a8ebfbc986a293b9b11a55ca5",
+    ".claude/settings.json": "f72174ce2a05baa93b97f967c56650aedf5f3d36028f49125f2de3195316fb1b",
+    ".claude/agents/reviewer.md": "5e5c79ab16974e7d6b5ae24ff1355463d1a5f503706fc754c4626a5a636f30e9",
+    ".claude/agents/explorer.md": "98af570d46ebc31933776ee2b3169fed70a8f62363e7b449a5104271d58dbd87",
+    ".claude/agents/ui-auditor.md": "3b0089faea0eb1171f84e71253b27242e5b59476078d91a390e88ac2b319689c",
+    ".claude/agents/speech-audio.md": "3c9492f1e1918c68fdaa1cc5fbc5665dad1521ea7a09581ba529e1ad23741f51",
+    ".claude/skills/intake/SKILL.md": "1a36ce520feeec788a23d2890ac035c3f523ec1b1d2229a74eaf3dcd553dcd0e",
+    ".claude/skills/adr/SKILL.md": "402bd87de25867218dae8beec69bb6c9bf0d7f8ce27cf479513e41c254480a90",
+    ".claude/skills/verify/SKILL.md": "906ec9e10a68383a1f918ffb5f81fd98ba3c9e143aa92868a0703b3b1646420e",
+    ".claude/skills/contract-first/SKILL.md": "a476480538e02f91e10c95f6fedefb7688fb81ca07a19465b7f5d66ecba28152",
+    ".agents/skills/intake/SKILL.md": "1a36ce520feeec788a23d2890ac035c3f523ec1b1d2229a74eaf3dcd553dcd0e",
+    ".agents/skills/adr/SKILL.md": "402bd87de25867218dae8beec69bb6c9bf0d7f8ce27cf479513e41c254480a90",
+    ".agents/skills/verify/SKILL.md": "906ec9e10a68383a1f918ffb5f81fd98ba3c9e143aa92868a0703b3b1646420e",
+    ".agents/skills/contract-first/SKILL.md": "a476480538e02f91e10c95f6fedefb7688fb81ca07a19465b7f5d66ecba28152"
+  }
+}

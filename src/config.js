@@ -9,7 +9,7 @@ import {
   CUSTOM_ROLE_DEFAULTS,
   DIRECTOR_DEFAULTS,
 } from "./presets.js";
-import { resolveModel, REASONING_EFFORTS } from "./models.js";
+import { TARGETS, resolveModel, effortFor, isAlias, REASONING_EFFORTS } from "./models.js";
 
 export const CONFIG_FILE = "orchestration.toml";
 export const SANDBOX_MODES = ["read-only", "workspace-write", "danger-full-access"];
@@ -37,6 +37,31 @@ function asList(value) {
   return Array.isArray(value) ? value.map(String) : [String(value)];
 }
 
+const isTable = (v) => v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date);
+
+// A model value is an alias (strong | balanced | fast), a concrete id, or a
+// table with one id per target. A bare concrete id only makes sense when the
+// project targets a single tool.
+function resolvePerTarget(value, targets, aliases, where, problems) {
+  const out = {};
+  if (isTable(value)) {
+    for (const t of targets) {
+      if (!value[t]) problems.push(`${where}: missing a model for "${t}"`);
+      out[t] = resolveModel(t, value[t], aliases);
+    }
+    return out;
+  }
+  if (!isAlias(value) && targets.length > 1) {
+    problems.push(`${where}: "${value}" is a concrete model id; with several targets use an alias (strong, balanced, fast) or a table like { claude = "opus", codex = "gpt-6.1-sol" }`);
+  }
+  for (const t of targets) out[t] = resolveModel(t, value, aliases);
+  return out;
+}
+
+function effortsPerTarget(effort, targets) {
+  return Object.fromEntries(targets.map((t) => [t, effortFor(t, effort)]));
+}
+
 // Turns the user-facing TOML into a fully resolved model used by the renderer.
 export function normalizeConfig(raw) {
   const problems = [];
@@ -47,6 +72,14 @@ export function normalizeConfig(raw) {
 
   const language = raw.language ?? "en";
   if (!LANGUAGES.includes(language)) problems.push(`language must be one of ${LANGUAGES.join(", ")}`);
+
+  // Configs written before targets existed were Codex-only.
+  const targets = raw.targets === undefined ? ["codex"] : asList(raw.targets);
+  if (!targets.length) problems.push(`targets must list at least one of ${TARGETS.join(", ")}`);
+  for (const t of targets) {
+    if (!TARGETS.includes(t)) problems.push(`targets: unknown tool "${t}" (use: ${TARGETS.join(", ")})`);
+  }
+  const validTargets = TARGETS.filter((t) => targets.includes(t));
 
   const project = raw.project ?? {};
   const docs = project.docs ?? {};
@@ -60,11 +93,12 @@ export function normalizeConfig(raw) {
   }
   orch.keywords = orch.keywords ?? true;
 
+  const directorEffort = raw.models?.director_effort ?? DIRECTOR_DEFAULTS.effort;
+  if (!REASONING_EFFORTS.includes(directorEffort)) problems.push(`models.director_effort must be one of ${REASONING_EFFORTS.join(", ")}`);
   const director = {
-    model: resolveModel(raw.models?.director ?? DIRECTOR_DEFAULTS.model, aliases),
-    effort: raw.models?.director_effort ?? DIRECTOR_DEFAULTS.effort,
+    model: resolvePerTarget(raw.models?.director ?? DIRECTOR_DEFAULTS.model, validTargets, aliases, "models.director", problems),
+    effort: effortsPerTarget(directorEffort, validTargets),
   };
-  if (!REASONING_EFFORTS.includes(director.effort)) problems.push(`models.director_effort must be one of ${REASONING_EFFORTS.join(", ")}`);
 
   // Roles: preset built-ins first, then user tables (which may disable or add).
   const rawRoles = raw.roles ?? {};
@@ -80,21 +114,23 @@ export function normalizeConfig(raw) {
     const builtin = BUILTIN_ROLES.includes(name);
     const defaults = builtin ? BUILTIN_ROLE_DEFAULTS[name] : CUSTOM_ROLE_DEFAULTS;
     if (!builtin && !user.description) problems.push(`role "${name}": custom roles need a description`);
-    const role = {
+    const effort = user.effort ?? defaults.effort;
+    if (!REASONING_EFFORTS.includes(effort)) problems.push(`role "${name}": effort must be one of ${REASONING_EFFORTS.join(", ")}`);
+    const sandbox = user.sandbox ?? defaults.sandbox;
+    if (!SANDBOX_MODES.includes(sandbox)) problems.push(`role "${name}": sandbox must be one of ${SANDBOX_MODES.join(", ")}`);
+    if (sandbox === "danger-full-access") problems.push(`role "${name}": danger-full-access is not allowed in lean-agents roles`);
+    roles.push({
       name,
       builtin,
       description: user.description,
       focus: asList(user.focus),
       checklist: asList(user.checklist),
       instructions: user.instructions ? String(user.instructions).trim() : "",
-      model: resolveModel(user.model ?? defaults.model, aliases),
-      effort: user.effort ?? defaults.effort,
-      sandbox: user.sandbox ?? defaults.sandbox,
-    };
-    if (!REASONING_EFFORTS.includes(role.effort)) problems.push(`role "${name}": effort must be one of ${REASONING_EFFORTS.join(", ")}`);
-    if (!SANDBOX_MODES.includes(role.sandbox)) problems.push(`role "${name}": sandbox must be one of ${SANDBOX_MODES.join(", ")}`);
-    if (role.sandbox === "danger-full-access") problems.push(`role "${name}": danger-full-access is not allowed in lean-agents roles`);
-    roles.push(role);
+      model: resolvePerTarget(user.model ?? defaults.model, validTargets, aliases, `role "${name}".model`, problems),
+      effort: effortsPerTarget(effort, validTargets),
+      sandbox,
+      claudeTools: user.claude_tools ? asList(user.claude_tools) : null,
+    });
   }
 
   const skills = raw.skills?.include ? asList(raw.skills.include) : [...p.skills];
@@ -107,6 +143,8 @@ export function normalizeConfig(raw) {
   for (const reserved of ["model", "model_reasoning_effort", "agents"]) {
     if (reserved in codex) problems.push(`[codex].${reserved} is managed by lean-agents; use [models] / [orchestration] instead`);
   }
+  const claude = raw.claude ?? {};
+  if ("model" in claude) problems.push("[claude].model is managed by lean-agents; use [models] instead");
 
   if (problems.length) throw new ConfigError(problems);
 
@@ -114,6 +152,7 @@ export function normalizeConfig(raw) {
     schema: raw.schema ?? 1,
     preset: presetName,
     language,
+    targets: validTargets,
     project: {
       name: project.name ?? "project",
       summary: project.summary ?? "",
@@ -131,5 +170,6 @@ export function normalizeConfig(raw) {
     roles,
     skills,
     codex,
+    claude,
   };
 }
