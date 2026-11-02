@@ -1,0 +1,15 @@
+{
+  "version": "0.1.0",
+  "files": {
+    "AGENTS.md": "54215f90e03730ea0e3eb1be448242070259a6b64b8baefcd0f4dce4ce2a4f54",
+    ".codex/config.toml": "dd9f39e8c472ce2b6039beb17587d3195c174e5d21a0293f93209efce48715d7",
+    ".codex/agents/reviewer.toml": "94fe74bd4262ca64f7f9caf5740c8789724be63ef141d52fdd4218b6f3a2f17e",
+    ".codex/agents/explorer.toml": "ec171811473839a20f36066577e36df0e1504943fe2e73c7f0e6651c1eb9e9ed",
+    ".codex/agents/ui-auditor.toml": "ab64dd8b1c05e09911bce8639ced76c1f67c751d6ba671b9515af75b7b2b8579",
+    ".codex/agents/speech-audio.toml": "9b3b20c1380bfc7ef4afe9ff64d9deeef7992596b522f9646ea29bd6152a44fe",
+    ".agents/skills/intake/SKILL.md": "29f01ebbca492b4145cd32404dd46d3c76947a18eed214c91768aa6ff3f65536",
+    ".agents/skills/adr/SKILL.md": "5e79c9a37146003b0ac35935dc4b0a9b6f334d956fbc23e132d2cbca347bb9c6",
+    ".agents/skills/verify/SKILL.md": "9b47ed61d0e8157bd68d0d85f15f76f49a80ee1b957a6e71f14e9f18d6afb852",
+    ".agents/skills/contract-first/SKILL.md": "e0df3f43d2191c63ffcc68aed4a1651e5cf92d28db7015e5fa04de7c290f3367"
+  }
+}

@@ -1,0 +1,62 @@
+# lean-agents configuration. Edit this file and run `npx lean-agents sync`.
+#
+# Real-world example: a local speech-to-speech translation POC
+# (FastAPI + WebSocket backend, React frontend, faster-whisper / Argos / Piper).
+# It replaces a 7-role setup with director + 3 read-only helpers + 1 specialist.
+schema = 1
+language = "es"
+preset = "web-fullstack"
+
+[project]
+name = "sts-to-tts-multilingual"
+summary = "POC local de traducción de voz es↔en: captura → STT → traducción → TTS, con perfiles mock, local e hybrid."
+sources_of_truth = ["PLAN_IMPLEMENTACION_POC.md", "contracts/"]
+rules = [
+  "Perfiles separados: `mock` siempre se identifica como simulado; `local` no requiere claves pagas; `hybrid` solo se habilita con selección explícita y credenciales autorizadas.",
+  "No enviar audio ni transcripciones a proveedores remotos, instalar drivers ni desplegar públicamente sin aprobación explícita.",
+  "Modelos, voces, cachés, `.env` y audio no van a Git. Verificá procedencia, revisión, hash y licencia antes de descargar. No redistribuir paquetes Argos sin licencia declarada.",
+  "No registrar contenido de audio o transcripciones, tickets WebSocket ni secretos.",
+  "Actualizá `docs/LICENSES.md` cuando cambie un motor, peso o voz. En Windows, la verificación equivalente es `pwsh scripts/check.ps1`.",
+]
+verify = ["bash scripts/check.sh"]
+
+[project.docs]
+status = "docs/STATUS.md"
+validation = "docs/VALIDATION.md"
+adr = "docs/adr"
+
+[models]
+director = "strong"
+director_effort = "high"
+
+[orchestration]
+delegation = "checkpoints"
+max_threads = 2
+intake = "ask"
+keywords = true
+
+[roles.reviewer]
+# Absorbs the old qa_reviewer + domain_validator roles.
+checklist = [
+  "Contratos OpenAPI / JSON Schema / WebSocket (`contracts/`) respetados por backend y frontend.",
+  "Perfiles mock/local/hybrid: el modo simulado se muestra como tal y hybrid nunca se activa implícitamente.",
+  "Cancelación, colas de audio, backpressure y aislamiento entre sesiones.",
+  "Dominio: es↔en, una dirección por sesión, texto confirmado vs. parcial, selección de voz.",
+  "Métricas: latencia, primer audio y RTF solo si fueron medidas; nada inventado.",
+  "Privacidad: sin audio ni transcripciones en logs; licencias de modelos y voces registradas.",
+]
+
+[roles.speech_audio]
+description = "Especialista del pipeline de voz: STT, traducción, TTS, PCM, VAD, remuestreo, AudioWorklet, colas, backpressure, latencia, RTF y licencias de modelos y voces."
+focus = [
+  "continuidad y orden de chunks, offsets, sample rates y canales",
+  "no llamar streaming a una respuesta bufferizada; no suponer parciales ni idiomas sin evidencia",
+  "primer audio, RTF y límites de recursos medidos con fixtures reproducibles",
+  "prevención de eco y aislamiento por sesión",
+]
+instructions = """
+Preferí la ruta local y fixtures reproducibles. No descargues modelos, uses micrófono real ni envíes audio a servicios remotos sin autorización explícita. Registrá revisión de licencia, procedencia y hash de cada modelo o voz que toques.
+"""
+model = "strong"
+effort = "high"
+sandbox = "workspace-write"
