@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- `models.director_effort` now reaches Claude Code as `effortLevel` in `.claude/settings.json`. Claude Code does not accept `max` in that key, so `max` is written as `xhigh`. Run `sync` to update existing projects.
+- `[claude].effortLevel` is now an error: use `models.director_effort`.
+- doctor: LA122 (unknown `effortLevel`) and LA123 (`env.CLAUDE_CODE_EFFORT_LEVEL` overrides `effortLevel`).
+- `init` uses `make check` only when the Makefile has a `check` target; otherwise it keeps detecting per ecosystem.
+- `init` finds frontend and backend dependencies in workspace packages declared in `pnpm-workspace.yaml` or in the `workspaces` field of `package.json` (array or `{ packages: [...] }`). It supports `dir/*` and literal paths and ignores more complex patterns.
+- CLI: `--key=value` splits on the first `=` only and accepts only `target`, `preset`, `lang` and `name`. Unknown options and boolean flags with a value, such as `--force=true`, exit with code 2.
+- doctor: `runDoctor` split into one function per area and a single frontmatter reader, with the same findings.
+- CI also runs on macOS and on pushes to `develop`.
+- README: the repository is public, so installing from GitHub needs no special access.
+- Unknown keys in `orchestration.toml` are warnings with a suggestion when one is close. `sync` and `init` print them, and doctor reports them as LA003, so they fail under `--strict`.
+
 ## 0.2.0 — 2026-11-02
 
 - Claude Code support. `targets = ["claude"]`, `["codex"]` or both; `init --target` or an interactive question picks the tool.

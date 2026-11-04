@@ -1,15 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parse } from "smol-toml";
-import { TARGET_EFFORTS, tierOf, TIER_NAMES } from "./models.js";
+import { TARGET_EFFORTS, CLAUDE_SETTINGS_EFFORTS, tierOf, TIER_NAMES } from "./models.js";
+import { SANDBOX_MODES, CONFIG_FILE, readConfig } from "./config.js";
+import { sync } from "./sync.js";
 
 const CODEX_EFFORTS = TARGET_EFFORTS.codex;
 const CLAUDE_EFFORTS = TARGET_EFFORTS.claude;
 const CLAUDE_MODEL_ALIASES = ["sonnet", "opus", "haiku", "fable", "inherit"];
 const CLAUDE_PERMISSION_MODES = ["default", "acceptEdits", "auto", "dontAsk", "bypassPermissions", "plan", "manual"];
 const CLAUDE_WRITE_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit", "Bash"];
-import { SANDBOX_MODES, CONFIG_FILE, readConfig } from "./config.js";
-import { sync } from "./sync.js";
 
 // Codex defaults this to 32 KiB; instructions beyond it are silently dropped.
 export const PROJECT_DOC_MAX_BYTES = 32 * 1024;
@@ -32,6 +32,7 @@ const ORCHESTRATION_HINT = /(director|orchestrat|orquest|delega)/i;
 export const RULES = {
   LA001: "config-parse-error",
   LA002: "orchestration-config-invalid",
+  LA003: "orchestration-unknown-key",
   LA010: "override-shadows-agents-md",
   LA011: "instructions-too-large",
   LA012: "subagent-guard-missing",
@@ -60,6 +61,8 @@ export const RULES = {
   LA111: "claude-md-long",
   LA120: "claude-settings-invalid",
   LA121: "claude-nested-subagents",
+  LA122: "claude-invalid-effort-level",
+  LA123: "claude-effort-env-override",
   LA130: "claude-agent-missing-field",
   LA131: "claude-duplicate-agent-name",
   LA132: "claude-agent-invalid-name",
@@ -102,25 +105,29 @@ function readToml(abs, rel, add) {
   }
 }
 
-function frontmatter(text) {
-  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!m) return null;
-  const fields = {};
-  for (const line of m[1].split(/\r?\n/)) {
-    const kv = line.match(/^([A-Za-z_-]+):\s*(.*)$/);
-    if (kv) fields[kv[1]] = kv[2].replace(/^["']|["']$/g, "").trim();
-  }
-  return fields;
-}
-
 export function runDoctor(rootArg) {
   const root = path.resolve(rootArg);
   const findings = [];
   const add = (id, severity, file, message, fix) => findings.push({ id, rule: RULES[id], severity, file, message, fix });
   const rel = (abs) => path.relative(root, abs).split(path.sep).join("/") || ".";
-  const files = walk(root);
+  const ctx = { root, files: walk(root), rel, add };
 
-  // ---- AGENTS.md / AGENTS.override.md -------------------------------------
+  const { loaded, rootInstr, rootText } = checkInstructions(ctx);
+  const codexConfig = checkCodexConfig(ctx);
+  const agents = checkCodexAgents(ctx, codexConfig);
+  const claude = checkClaude(ctx, rootText);
+  checkSubagentGuard(ctx, { agents, claude, rootInstr, rootText });
+  checkSkills(ctx, { loaded, agents, claude });
+  checkVersioning(ctx);
+  checkManagedProject(ctx);
+
+  const order = { error: 0, warn: 1, info: 2 };
+  findings.sort((a, b) => order[a.severity] - order[b.severity] || a.id.localeCompare(b.id));
+  return { root, findings };
+}
+
+// AGENTS.md / AGENTS.override.md
+function checkInstructions({ root, files, rel, add }) {
   const byDir = new Map();
   for (const f of files) {
     const base = path.basename(f);
@@ -156,8 +163,11 @@ export function runDoctor(rootArg) {
   }
   const rootInstr = loaded.get(root);
   const rootText = rootInstr ? fs.readFileSync(rootInstr, "utf8") : "";
+  return { loaded, rootInstr, rootText };
+}
 
-  // ---- .codex/config.toml ---------------------------------------------------
+// .codex/config.toml
+function checkCodexConfig({ root, add }) {
   const configAbs = path.join(root, ".codex/config.toml");
   let codexConfig = null;
   if (fs.existsSync(configAbs)) {
@@ -187,7 +197,11 @@ export function runDoctor(rootArg) {
     }
   }
 
-  // ---- .codex/agents/*.toml ------------------------------------------------
+  return codexConfig;
+}
+
+// .codex/agents/*.toml
+function checkCodexAgents({ root, rel, add }, codexConfig) {
   const agentDir = path.join(root, ".codex/agents");
   const agents = [];
   if (fs.existsSync(agentDir)) {
@@ -239,9 +253,11 @@ export function runDoctor(rootArg) {
     }
   }
 
-  const claude = checkClaude(root, files, rel, add, rootText);
+  return agents;
+}
 
-  // ---- Subagent guard (both tools) -----------------------------------------
+// Both tools give subagents the project instructions too.
+function checkSubagentGuard({ rel, add }, { agents, claude, rootInstr, rootText }) {
   const guardChecks = [
     { agents: agents.map((a) => String(a.data.developer_instructions ?? "")), text: rootText, file: rootInstr ? rel(rootInstr) : "AGENTS.md" },
     { agents: claude.agents.map((a) => a.body), text: claude.instructions, file: claude.instructionsFile },
@@ -254,7 +270,9 @@ export function runDoctor(rootArg) {
     }
   }
 
-  // ---- Skills ---------------------------------------------------------------
+}
+
+function checkSkills({ files, rel, add }, { loaded, agents, claude }) {
   const skills = new Map(); // name -> file (only scanned locations)
   let descriptionChars = 0;
   const misplaced = [];
@@ -266,14 +284,14 @@ export function runDoctor(rootArg) {
       continue;
     }
     if (/(^|\/)\.claude\/skills\//.test(r)) {
-      const fm = frontmatter(fs.readFileSync(f, "utf8"));
+      const fm = parseFrontmatter(fs.readFileSync(f, "utf8"))?.fields;
       const name = fm?.name || path.basename(path.dirname(f));
       if (fm) skills.set(name, r);
       continue; // validated in checkClaude
     }
     if (!/(^|\/)\.agents\/skills\//.test(r)) continue;
     const text = fs.readFileSync(f, "utf8");
-    const fm = frontmatter(text);
+    const fm = parseFrontmatter(text)?.fields;
     if (!fm?.name || !fm?.description) {
       add("LA041", "error", r, "SKILL.md needs YAML frontmatter with name and description.", "Add ---\\nname: ...\\ndescription: ...\\n--- at the top.");
       continue;
@@ -311,7 +329,9 @@ export function runDoctor(rootArg) {
     }
   }
 
-  // ---- Versioning -----------------------------------------------------------
+}
+
+function checkVersioning({ root, add }) {
   const ignoreSources = [".gitignore", ".git/info/exclude"].filter((f) => fs.existsSync(path.join(root, f)));
   for (const src of ignoreSources) {
     const lines = fs.readFileSync(path.join(root, src), "utf8").split(/\r?\n/).map((l) => l.trim());
@@ -325,10 +345,17 @@ export function runDoctor(rootArg) {
     }
   }
 
-  // ---- lean-agents managed projects ---------------------------------------
+}
+
+// Only for projects that lean-agents manages.
+function checkManagedProject({ root, add }) {
   if (fs.existsSync(path.join(root, CONFIG_FILE))) {
+    const addUnknownKeys = (warnings = []) => {
+      for (const w of warnings) add("LA003", "warn", CONFIG_FILE, w, "Fix the key name, or remove it if it belongs to another lean-agents version.");
+    };
     try {
       const cfg = readConfig(root);
+      addUnknownKeys(cfg.warnings);
       const plan = sync(root, cfg, { dryRun: true });
       const pending = plan.filter((a) => ["create", "update", "delete"].includes(a.type));
       const edited = plan.filter((a) => a.type === "skip" || a.type === "orphan");
@@ -339,13 +366,10 @@ export function runDoctor(rootArg) {
         add("LA060", "info", a.rel, `Not managed by sync: ${a.reason}.`, "Move the change into orchestration.toml, or run `sync --force` (a .bak copy is kept).");
       }
     } catch (err) {
+      addUnknownKeys(err.warnings);
       add("LA002", "error", CONFIG_FILE, err.message, "Fix orchestration.toml.");
     }
   }
-
-  const order = { error: 0, warn: 1, info: 2 };
-  findings.sort((a, b) => order[a.severity] - order[b.severity] || a.id.localeCompare(b.id));
-  return { root, findings };
 }
 
 // ---- Claude Code ---------------------------------------------------------------
@@ -392,7 +416,7 @@ function unquote(v) {
 const toolList = (v) => (v === undefined || v === "" ? null : Array.isArray(v) ? v : String(v).split(/[\s,]+/).filter(Boolean));
 const toolName = (t) => t.replace(/\(.*$/, "");
 
-function checkClaude(root, files, rel, add, agentsMdText) {
+function checkClaude({ root, files, rel, add }, agentsMdText) {
   const result = { agents: [], instructions: "", instructionsFile: null };
   const claudeMd = ["CLAUDE.md", ".claude/CLAUDE.md"].map((f) => path.join(root, f)).find((f) => fs.existsSync(f));
   const agentsMd = path.join(root, "AGENTS.md");
@@ -427,6 +451,14 @@ function checkClaude(root, files, rel, add, agentsMdText) {
     } catch (err) {
       add("LA120", "error", ".claude/settings.json", `Invalid JSON: ${err.message}`, "Claude Code reports a Settings Error and may skip the whole file. Fix the syntax (no comments, no trailing commas).");
     }
+  }
+  const effortLevel = settings?.effortLevel;
+  if (effortLevel !== undefined && !CLAUDE_SETTINGS_EFFORTS.includes(effortLevel)) {
+    add("LA122", "warn", ".claude/settings.json", `effortLevel = ${JSON.stringify(effortLevel)} is not a level Claude Code accepts in settings.`, `Use one of ${CLAUDE_SETTINGS_EFFORTS.join(", ")}. \`max\` only persists through env.CLAUDE_CODE_EFFORT_LEVEL.`);
+  }
+  const effortEnv = settings?.env?.CLAUDE_CODE_EFFORT_LEVEL;
+  if (effortEnv !== undefined) {
+    add("LA123", "info", ".claude/settings.json", `env.CLAUDE_CODE_EFFORT_LEVEL = ${JSON.stringify(effortEnv)} takes priority over effortLevel.`, "Remove it if effortLevel (models.director_effort in lean-agents projects) should decide the director's effort.");
   }
 
   // Agents.

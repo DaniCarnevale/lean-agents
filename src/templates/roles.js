@@ -1,6 +1,7 @@
 import { GENERATED_MARK, VERSION } from "../version.js";
 import { stringify } from "smol-toml";
 import { str, multiline } from "./toml.js";
+import { claudeSettingsEffort } from "../models.js";
 
 const T = {
   es: {
@@ -171,6 +172,7 @@ export function renderClaudeSettings(cfg) {
   const settings = {
     $schema: "https://json.schemastore.org/claude-code-settings.json",
     model: cfg.director.model.claude,
+    effortLevel: claudeSettingsEffort(cfg.director.effort.claude),
     ...extra,
     env: { CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: "1", ...(extra.env ?? {}) },
   };

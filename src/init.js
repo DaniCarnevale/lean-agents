@@ -6,11 +6,70 @@ import { str } from "./templates/toml.js";
 
 const exists = (root, rel) => fs.existsSync(path.join(root, rel));
 
+const FRONTEND_DEPS = ["react", "vue", "svelte", "next", "@angular/core", "solid-js"];
+const BACKEND_DEPS = ["express", "fastify", "@nestjs/core", "hono", "koa"];
+const DEFAULT_PNPM_WORKSPACES = ["apps/*", "packages/*"];
+
 function readJson(file) {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8"));
   } catch {
     return null;
+  }
+}
+
+function readText(file) {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+const dependenciesOf = (pkg) => ({ ...pkg?.dependencies, ...pkg?.devDependencies });
+const usesAny = (names, deps) => names.some((d) => d in deps);
+
+// Reads a block-style `packages:` list from pnpm-workspace.yaml without a YAML
+// parser. Any other form returns nothing, so the caller uses its default folders.
+function pnpmWorkspacePatterns(text) {
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((l) => /^packages\s*:\s*(#.*)?$/.test(l));
+  if (start === -1) return [];
+  const patterns = [];
+  for (const line of lines.slice(start + 1)) {
+    if (!line.trim() || line.trim().startsWith("#")) continue;
+    const item = line.match(/^\s*-\s+(.+)$/);
+    if (!item) break;
+    patterns.push(item[1].replace(/\s+#.*$/, "").trim().replace(/^['"]|['"]$/g, ""));
+  }
+  return patterns;
+}
+
+function workspacePatterns(root, pkg) {
+  const field = pkg?.workspaces;
+  const declared = Array.isArray(field) ? field : field?.packages;
+  const patterns = Array.isArray(declared) ? declared.filter((p) => typeof p === "string") : [];
+  if (exists(root, "pnpm-workspace.yaml")) {
+    const pnpm = pnpmWorkspacePatterns(readText(path.join(root, "pnpm-workspace.yaml")));
+    patterns.push(...(pnpm.length ? pnpm : DEFAULT_PNPM_WORKSPACES));
+  }
+  return patterns;
+}
+
+// Supports literal paths and `dir/*`. Other patterns, and anything pointing
+// outside the repo, are ignored. Workspace patterns always use `/`, so a
+// backslash is rejected on every platform instead of working only on Windows.
+function expandWorkspace(root, pattern) {
+  const clean = pattern.trim().replace(/^\.\//, "").replace(/\/+$/, "");
+  if (!clean || clean.includes("\\") || path.isAbsolute(clean) || clean.split("/").includes("..")) return [];
+  const isWildcard = clean.endsWith("/*");
+  const base = isWildcard ? clean.slice(0, -2) : clean;
+  if (/[*?!{}[\]()]/.test(base)) return [];
+  if (!isWildcard) return [base];
+  try {
+    return fs.readdirSync(path.join(root, base)).map((sub) => path.join(base, sub));
+  } catch {
+    return [];
   }
 }
 
@@ -26,11 +85,11 @@ export function detectProject(root) {
   // A repo-level check script usually covers every ecosystem, so it wins.
   let hasCheckScript = false;
   for (const script of ["scripts/check.sh", "scripts/check.ps1", "Makefile"]) {
-    if (exists(root, script)) {
-      hasCheckScript = true;
-      verify.push(script === "Makefile" ? "make check" : script.endsWith(".sh") ? `bash ${script}` : `pwsh ${script}`);
-      break;
-    }
+    if (!exists(root, script)) continue;
+    if (script === "Makefile" && !/^check\s*:/m.test(readText(path.join(root, script)))) continue;
+    hasCheckScript = true;
+    verify.push(script === "Makefile" ? "make check" : script.endsWith(".sh") ? `bash ${script}` : `pwsh ${script}`);
+    break;
   }
 
   const pkg = readJson(path.join(root, "package.json"));
@@ -42,19 +101,16 @@ export function detectProject(root) {
         if (scripts[s]) verify.push(s === "test" && runner === "npm run" ? "npm test" : `${runner} ${s}`);
       }
     }
-    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-    frontend = ["react", "vue", "svelte", "next", "@angular/core", "solid-js"].some((d) => d in deps);
-    backend = ["express", "fastify", "@nestjs/core", "hono", "koa"].some((d) => d in deps);
+    const deps = dependenciesOf(pkg);
+    frontend = usesAny(FRONTEND_DEPS, deps);
+    backend = usesAny(BACKEND_DEPS, deps);
   }
-  if (exists(root, "pnpm-workspace.yaml")) {
-    // Monorepos often hide the frontend in a workspace package.
-    for (const dir of ["apps", "packages"]) {
-      if (!exists(root, dir)) continue;
-      for (const sub of fs.readdirSync(path.join(root, dir))) {
-        const p = readJson(path.join(root, dir, sub, "package.json"));
-        const deps = { ...p?.dependencies, ...p?.devDependencies };
-        if (["react", "vue", "svelte", "next"].some((d) => d in deps)) frontend = true;
-      }
+  // Monorepos often keep the frontend and backend in workspace packages.
+  for (const pattern of workspacePatterns(root, pkg)) {
+    for (const dir of expandWorkspace(root, pattern)) {
+      const deps = dependenciesOf(readJson(path.join(root, dir, "package.json")));
+      if (usesAny(FRONTEND_DEPS, deps)) frontend = true;
+      if (usesAny(BACKEND_DEPS, deps)) backend = true;
     }
   }
   const addEco = (cmd) => {

@@ -22,8 +22,8 @@ Usage:
   lean-agents doctor [dir]   Lint any Claude Code / Codex agent setup (lean-agents or not)
   lean-agents presets        List presets and model aliases
 
-Options:
-  --target <tool>     init: claude | codex | both (default: detected, else both)
+Options (those with a value also accept --option=value):
+  --target <tool>    init: claude | codex | both (default: detected, else both)
   --preset <name>     init: ${Object.keys(PRESETS).join(" | ")}
   --lang <es|en>      init: language of generated instructions (default: en)
   --name <name>       init: project name (default: folder name)
@@ -36,7 +36,10 @@ Options:
   -v, --version       Show version
 `;
 
-function parseArgs(argv) {
+const VALUE_OPTIONS = ["target", "preset", "lang", "name"];
+const BOOLEAN_OPTIONS = ["yes", "help", "version", "dry-run", "force", "json", "strict"];
+
+export function parseArgs(argv) {
   const opts = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -44,14 +47,21 @@ function parseArgs(argv) {
     else if (a === "-h" || a === "--help") opts.help = true;
     else if (a === "-v" || a === "--version") opts.version = true;
     else if (["--dry-run", "--force", "--json", "--strict"].includes(a)) opts[a.slice(2).replace("-r", "R")] = true;
-    else if (["--preset", "--lang", "--name", "--target"].includes(a)) opts[a.slice(2)] = argv[++i];
+    else if (a.startsWith("--") && VALUE_OPTIONS.includes(a.slice(2))) opts[a.slice(2)] = argv[++i];
     else if (a.startsWith("--") && a.includes("=")) {
-      const [k, v] = a.slice(2).split("=");
-      opts[k] = v;
+      const eq = a.indexOf("=");
+      const key = a.slice(2, eq);
+      if (BOOLEAN_OPTIONS.includes(key)) throw new Error(`Option --${key} does not take a value`);
+      if (!VALUE_OPTIONS.includes(key)) throw new Error(`Unknown option --${key}`);
+      opts[key] = a.slice(eq + 1);
     } else if (a.startsWith("-")) throw new Error(`Unknown option ${a}`);
     else opts._.push(a);
   }
   return opts;
+}
+
+function printWarnings(warnings = []) {
+  for (const w of warnings) console.error(yellow(`warning: ${CONFIG_FILE}: ${w}`));
 }
 
 function printActions(actions, root, dryRun) {
@@ -133,12 +143,14 @@ async function cmdInit(root, opts) {
     const { parse } = await import("smol-toml");
     const { renderOrchestrationToml } = await import("./init.js");
     const cfg = normalizeConfig(parse(renderOrchestrationToml(answers)));
+    printWarnings(cfg.warnings);
     printActions(sync(root, cfg, { dryRun: true, force: opts.force }), root, true);
     return 0;
   }
   writeInitialConfig(root, answers);
   console.log(`  ${green("create   ")} ${CONFIG_FILE}`);
   const cfg = readConfig(root);
+  printWarnings(cfg.warnings);
   printActions(sync(root, cfg, { force: opts.force }), root, false);
   console.log(`\nNext: review ${CONFIG_FILE} (rules, verify, roles), run \`lean-agents sync\`, then \`lean-agents doctor\`.`);
   return 0;
@@ -147,6 +159,7 @@ async function cmdInit(root, opts) {
 function cmdSync(root, opts) {
   const cfg = readConfig(root);
   if (!cfg) throw new Error(`No ${CONFIG_FILE} in ${root}. Run \`lean-agents init\` first.`);
+  printWarnings(cfg.warnings);
   printActions(sync(root, cfg, { force: opts.force, dryRun: opts.dryRun }), root, opts.dryRun);
   return 0;
 }
@@ -222,6 +235,7 @@ export async function main(argv) {
         return 2;
     }
   } catch (err) {
+    printWarnings(err.warnings);
     console.error(red(err instanceof ConfigError ? err.message : `Error: ${err.message}`));
     return 1;
   }

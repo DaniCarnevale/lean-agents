@@ -8,6 +8,7 @@
 |---|---|---|---|
 | LA001 | config-parse-error | error | A `.codex/config.toml` or agent TOML file that does not parse. |
 | LA002 | orchestration-config-invalid | error | `orchestration.toml` has invalid values (unknown preset, mode, role or skill). |
+| LA003 | orchestration-unknown-key | warn | `orchestration.toml` has a key that lean-agents does not know, usually a typo. Suggests the right key when it can. `[claude]`, `[codex]` and the tool names under `[models.aliases]` are not checked. |
 | LA010 | override-shadows-agents-md | error | `AGENTS.override.md` and `AGENTS.md` in the same folder. Codex loads only the override. |
 | LA011 | instructions-too-large | warn / info | The instruction chain for a folder exceeds 32 KiB (`project_doc_max_bytes` default; the rest is dropped) or 16 KiB (info: paid every turn). |
 | LA012 | subagent-guard-missing | warn | Project instructions (AGENTS.md or CLAUDE.md) define a director/orchestration protocol and subagents exist, but nothing tells subagents to skip it. |
@@ -41,6 +42,8 @@
 | LA111 | claude-md-long | info | More than 200 lines of instructions load every session (imports included). |
 | LA120 | claude-settings-invalid | error | `.claude/settings.json` is not valid JSON. |
 | LA121 | claude-nested-subagents | info | Subagents can launch their own subagents (no `disallowedTools: Agent` and no `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1`). |
+| LA122 | claude-invalid-effort-level | warn | `effortLevel` in `.claude/settings.json` is not `low`, `medium`, `high` or `xhigh`. Claude Code does not accept `max` in this key. |
+| LA123 | claude-effort-env-override | info | `env.CLAUDE_CODE_EFFORT_LEVEL` is set in `.claude/settings.json`; it takes priority over `effortLevel`. |
 | LA130 | claude-agent-missing-field | error | A subagent without `name` or `description`. |
 | LA131 | claude-duplicate-agent-name | error | Two subagents with the same `name`. |
 | LA132 | claude-agent-invalid-name | error | A `name` containing `:` or starting with `-`. |

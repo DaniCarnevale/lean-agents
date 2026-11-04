@@ -18,10 +18,25 @@ const INTAKE_MODES = ["off", "ask", "always"];
 const LANGUAGES = ["es", "en"];
 const ROLE_NAME = /^[a-z][a-z0-9_]*$/;
 
+// Known keys per table. [claude], [codex] and the tool names under
+// [models.aliases] are pass-through, so they are not listed.
+const KNOWN_KEYS = {
+  root: ["schema", "targets", "language", "preset", "project", "models", "orchestration", "roles", "skills", "claude", "codex"],
+  project: ["name", "summary", "sources_of_truth", "rules", "verify", "docs"],
+  docs: ["status", "validation", "adr"],
+  models: ["director", "director_effort", "aliases"],
+  alias: ["strong", "balanced", "fast"],
+  orchestration: ["delegation", "max_threads", "intake", "keywords"],
+  skills: ["include"],
+  role: ["enabled", "description", "focus", "checklist", "instructions", "model", "effort", "sandbox", "claude_tools"],
+};
+const MAX_SUGGESTION_DISTANCE = 2;
+
 export class ConfigError extends Error {
-  constructor(problems) {
+  constructor(problems, warnings = []) {
     super(`Invalid ${CONFIG_FILE}:\n- ${problems.join("\n- ")}`);
     this.problems = problems;
+    this.warnings = warnings;
   }
 }
 
@@ -38,6 +53,61 @@ function asList(value) {
 }
 
 const isTable = (v) => v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date);
+
+function editDistance(a, b) {
+  let previous = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      current[j] = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + cost);
+    }
+    previous = current;
+  }
+  return previous[b.length];
+}
+
+function closestKey(key, known) {
+  let best = null;
+  let bestDistance = MAX_SUGGESTION_DISTANCE + 1;
+  for (const candidate of known) {
+    const distance = editDistance(key, candidate);
+    if (distance < bestDistance) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+// Unknown keys are warnings, not errors, so a config written for a newer
+// version still loads.
+function unknownKeyWarnings(raw) {
+  const warnings = [];
+  const check = (table, known, where) => {
+    if (!isTable(table)) return;
+    for (const key of Object.keys(table)) {
+      if (known.includes(key)) continue;
+      const suggestion = closestKey(key, known);
+      const prefix = where ? `[${where}] ` : "";
+      warnings.push(
+        suggestion
+          ? `${prefix}\`${key}\` does not exist, did you mean \`${suggestion}\`?`
+          : `${prefix}\`${key}\` does not exist (known keys: ${known.join(", ")}).`
+      );
+    }
+  };
+  const tablesIn = (value) => (isTable(value) ? Object.entries(value) : []);
+  check(raw, KNOWN_KEYS.root, "");
+  check(raw.project, KNOWN_KEYS.project, "project");
+  check(raw.project?.docs, KNOWN_KEYS.docs, "project.docs");
+  check(raw.models, KNOWN_KEYS.models, "models");
+  for (const [tool, table] of tablesIn(raw.models?.aliases)) check(table, KNOWN_KEYS.alias, `models.aliases.${tool}`);
+  check(raw.orchestration, KNOWN_KEYS.orchestration, "orchestration");
+  check(raw.skills, KNOWN_KEYS.skills, "skills");
+  for (const [name, table] of tablesIn(raw.roles)) check(table, KNOWN_KEYS.role, `roles.${name}`);
+  return warnings;
+}
 
 // A model value is an alias (strong | balanced | fast), a concrete id, or a
 // table with one id per target. A bare concrete id only makes sense when the
@@ -65,6 +135,7 @@ function effortsPerTarget(effort, targets) {
 // Turns the user-facing TOML into a fully resolved model used by the renderer.
 export function normalizeConfig(raw) {
   const problems = [];
+  const warnings = unknownKeyWarnings(raw);
   const presetName = raw.preset ?? "standard";
   const preset = PRESETS[presetName];
   if (!preset) problems.push(`preset "${presetName}" does not exist (use: ${Object.keys(PRESETS).join(", ")})`);
@@ -145,10 +216,12 @@ export function normalizeConfig(raw) {
   }
   const claude = raw.claude ?? {};
   if ("model" in claude) problems.push("[claude].model is managed by lean-agents; use [models] instead");
+  if ("effortLevel" in claude) problems.push("[claude].effortLevel is managed by lean-agents; use models.director_effort instead");
 
-  if (problems.length) throw new ConfigError(problems);
+  if (problems.length) throw new ConfigError(problems, warnings);
 
   return {
+    warnings,
     schema: raw.schema ?? 1,
     preset: presetName,
     language,

@@ -37,7 +37,7 @@ npx github:DaniCarnevale/lean-agents init --target both     # both tools, one sh
 | Project instructions | `CLAUDE.md` | `AGENTS.md` |
 | Subagents | `.claude/agents/*.md` | `.codex/agents/*.toml` |
 | Skills | `.claude/skills/<name>/SKILL.md` (run with `/<name>`) | `.agents/skills/<name>/SKILL.md` (run with `$<name>`) |
-| Settings | `.claude/settings.json` (director model, no nested subagents) | `.codex/config.toml` (director model, `max_threads`, `max_depth = 1`) |
+| Settings | `.claude/settings.json` (director model and effort, no nested subagents) | `.codex/config.toml` (director model, `max_threads`, `max_depth = 1`) |
 | Read-only roles | `tools: Read, Grep, Glob` | `sandbox_mode = "read-only"` |
 | Default models (`strong` / `balanced` / `fast`) | `opus` / `sonnet` / `haiku` | `gpt-6.1-sol` / `gpt-6-sol` / `gpt-6-luna` |
 
@@ -57,8 +57,6 @@ npx github:DaniCarnevale/lean-agents init
 npm i -D github:DaniCarnevale/lean-agents#v0.2.0
 npx lean-agents init
 ```
-
-The repository is private for now. Installing from GitHub needs Git access to it (SSH key or a credential manager).
 
 ## Quick start
 
@@ -112,6 +110,10 @@ lean-agents presets        # list presets and model aliases per tool
 | `--force` | init, sync | Replace files lean-agents did not create or that you edited (keeps a `.bak`) |
 | `--json`, `--strict` | doctor | Machine-readable output / exit 1 on warnings |
 
+Options with a value also accept `--option=value`. Unknown options, and boolean flags given a value (`--force=true`), exit with code 2.
+
+`init` looks for dependencies in the workspace packages declared in `pnpm-workspace.yaml` or in the `workspaces` field of `package.json`. It supports `dir/*` and literal paths, and ignores more complex patterns. It suggests `make check` only if the Makefile has a `check` target.
+
 `sync` never overwrites a file it did not create, or one you edited by hand, unless you pass `--force`. Generated files are tracked in `.lean-agents.lock.json`.
 
 ## Configuration
@@ -135,7 +137,7 @@ adr = "docs/adr"
 
 [models]
 director = "strong"             # alias, or { claude = "claude-opus-5-5", codex = "gpt-6.1-sol" }
-director_effort = "high"        # minimal | low | medium | high | xhigh | max (mapped per tool)
+director_effort = "high"        # minimal | low | medium | high | xhigh | max (mapped per tool; max becomes xhigh in both)
 
 [models.aliases.claude]         # optional: remap an alias for one tool
 # balanced = "sonnet"
@@ -161,13 +163,15 @@ sandbox = "workspace-write"     # or "read-only"
 instructions = "Never log card data."
 # claude_tools = ["Read", "Grep", "Glob", "Bash"]   # optional explicit tool list for Claude Code
 
-[claude]                        # merged into .claude/settings.json
+[claude]                        # merged into .claude/settings.json (except model and effortLevel: use [models])
 # [claude.permissions]
 # deny = ["Read(./.env)"]
 
 [codex]                         # merged into .codex/config.toml
 # approval_policy = "on-request"
 ```
+
+Unknown keys are warnings, with a suggestion when one is close: `` `delegaton` does not exist, did you mean `delegation`? ``. `sync` and `init` print them, and `doctor` reports them as LA003, so they fail under `--strict`. `[claude]` and `[codex]` are not checked, because they pass through to each tool.
 
 ### Presets
 

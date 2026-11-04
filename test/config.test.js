@@ -77,6 +77,82 @@ test("[codex] settings pass through but cannot override managed keys", () => {
   assert.equal(out.agents.max_depth, 1);
   assert.match(problemsOf({ codex: { agents: { max_threads: 5 } } }).join(), /managed by lean-agents/);
   assert.match(problemsOf({ targets: ["claude"], claude: { model: "opus" } }).join(), /managed by lean-agents/);
+  assert.match(problemsOf({ targets: ["claude"], claude: { effortLevel: "low" } }).join(), /\[claude\]\.effortLevel is managed by lean-agents; use models\.director_effort/);
+});
+
+const warningsOf = (raw) => normalizeConfig(raw).warnings;
+
+test("a config with only known keys has no warnings", () => {
+  const raw = {
+    schema: 1,
+    targets: ["claude", "codex"],
+    language: "es",
+    preset: "standard",
+    project: { name: "x", summary: "", sources_of_truth: [], rules: [], verify: [], docs: { status: "s", validation: "v", adr: "a" } },
+    models: { director: "strong", director_effort: "high", aliases: { claude: { strong: "opus", balanced: "sonnet", fast: "haiku" } } },
+    orchestration: { delegation: "explicit", max_threads: 1, intake: "off", keywords: false },
+    skills: { include: ["verify"] },
+    roles: {
+      reviewer: { enabled: true, focus: [], checklist: [], instructions: "x", model: "fast", effort: "low", sandbox: "read-only", claude_tools: ["Read"] },
+      payments: { description: "Payments." },
+    },
+    claude: { anything: 1, permissions: { nope: true } },
+    codex: { anything: 1, mcp_servers: { docs: { command: "x" } } },
+  };
+  assert.deepEqual(warningsOf(raw), []);
+});
+
+test("unknown keys warn in every validated table, with a suggestion when close", () => {
+  const cases = [
+    [{ role: { pagos: { description: "x" } } }, "`role` does not exist, did you mean `roles`?"],
+    [{ project: { nmae: "x" } }, "[project] `nmae` does not exist, did you mean `name`?"],
+    [{ project: { docs: { stauts: "x" } } }, "[project.docs] `stauts` does not exist, did you mean `status`?"],
+    [{ models: { directr: "fast" } }, "[models] `directr` does not exist, did you mean `director`?"],
+    [{ models: { aliases: { claude: { stong: "opus" } } } }, "[models.aliases.claude] `stong` does not exist, did you mean `strong`?"],
+    [{ orchestration: { delegaton: "explicit" } }, "[orchestration] `delegaton` does not exist, did you mean `delegation`?"],
+    [{ skills: { includes: ["verify"] } }, "[skills] `includes` does not exist, did you mean `include`?"],
+    [{ roles: { reviewer: { modle: "fast" } } }, "[roles.reviewer] `modle` does not exist, did you mean `model`?"],
+  ];
+  for (const [raw, expected] of cases) assert.deepEqual(warningsOf(raw), [expected]);
+});
+
+test("keys far from any known key warn without a suggestion", () => {
+  const [warning] = warningsOf({ orchestration: { unrelated_setting: 1 } });
+  assert.match(warning, /`unrelated_setting` does not exist \(known keys: delegation, /);
+  assert.doesNotMatch(warning, /did you mean/);
+});
+
+test("a suggestion needs an edit distance of 2 or less", () => {
+  assert.match(warningsOf({ project: { sumary1: "x" } })[0], /did you mean `summary`/);
+  assert.doesNotMatch(warningsOf({ project: { sumry123: "x" } })[0], /did you mean/);
+});
+
+test("role names are free; a disabled role's keys are still checked", () => {
+  assert.deepEqual(warningsOf({ roles: { anything_goes: { description: "x" } } }), []);
+  assert.match(warningsOf({ roles: { explorer: { enabled: false, modle: "x" } } })[0], /\[roles\.explorer\]/);
+});
+
+test("pass-through tables and alias tool names are not validated", () => {
+  assert.deepEqual(warningsOf({ claude: { foo: 1 }, codex: { bar: 1 }, models: { aliases: { other_tool: { strong: "x" } } } }), []);
+});
+
+test("non-table values where a table is expected do not crash the validator", () => {
+  assert.deepEqual(warningsOf({ skills: 1, models: { director: "strong", aliases: { claude: 1 } } }), []);
+  assert.deepEqual(warningsOf({ schema: 1, roles: {} }), []);
+});
+
+test("unknown keys never become errors, and errors keep their contract", () => {
+  assert.deepEqual(problemsOf({ orchestration: { delegaton: "explicit" } }), []);
+  try {
+    normalizeConfig({ preset: "huge", modle: 1, models: { directr: "fast" } });
+    assert.fail("expected a ConfigError");
+  } catch (err) {
+    assert.ok(err instanceof ConfigError);
+    assert.equal(err.problems.length, 1);
+    assert.match(err.message, /preset "huge"/);
+    assert.doesNotMatch(err.message, /directr/);
+    assert.match(err.warnings.join("\n"), /`directr`/);
+  }
 });
 
 for (const preset of Object.keys(PRESETS)) {

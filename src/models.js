@@ -46,11 +46,17 @@ export const TARGET_EFFORTS = {
   claude: ["low", "medium", "high", "xhigh", "max"],
 };
 
+// `effortLevel` in .claude/settings.json is narrower than subagent `effort`:
+// Claude Code does not accept `max` there.
+export const CLAUDE_SETTINGS_EFFORTS = ["low", "medium", "high", "xhigh"];
+
 export function effortFor(target, effort) {
   if (target === "codex" && effort === "max") return "xhigh";
   if (target === "claude" && effort === "minimal") return "low";
   return effort;
 }
+
+export const claudeSettingsEffort = (effort) => (effort === "max" ? "xhigh" : effort);
 
 export const isAlias = (value) => ["strong", "balanced", "fast"].includes(value);
 

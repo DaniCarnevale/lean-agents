@@ -37,7 +37,7 @@ npx github:DaniCarnevale/lean-agents init --target both     # las dos, con una s
 | Instrucciones del proyecto | `CLAUDE.md` | `AGENTS.md` |
 | Subagentes | `.claude/agents/*.md` | `.codex/agents/*.toml` |
 | Skills | `.claude/skills/<nombre>/SKILL.md` (se usan con `/<nombre>`) | `.agents/skills/<nombre>/SKILL.md` (se usan con `$<nombre>`) |
-| Configuración | `.claude/settings.json` (modelo del director, sin subagentes anidados) | `.codex/config.toml` (modelo del director, `max_threads`, `max_depth = 1`) |
+| Configuración | `.claude/settings.json` (modelo y effort del director, sin subagentes anidados) | `.codex/config.toml` (modelo del director, `max_threads`, `max_depth = 1`) |
 | Roles de solo lectura | `tools: Read, Grep, Glob` | `sandbox_mode = "read-only"` |
 | Modelos por defecto (`strong` / `balanced` / `fast`) | `opus` / `sonnet` / `haiku` | `gpt-6.1-sol` / `gpt-6-sol` / `gpt-6-luna` |
 
@@ -57,8 +57,6 @@ npx github:DaniCarnevale/lean-agents init
 npm i -D github:DaniCarnevale/lean-agents#v0.2.0
 npx lean-agents init
 ```
-
-Por ahora el repositorio es privado. Para instalarlo desde GitHub hace falta tener acceso Git a él (clave SSH o credential manager).
 
 ## Primeros pasos
 
@@ -112,6 +110,10 @@ lean-agents presets        # lista presets y alias de modelos por herramienta
 | `--force` | init, sync | Reemplaza archivos que lean-agents no creó o que editaste (deja un `.bak`) |
 | `--json`, `--strict` | doctor | Salida para máquinas / falla también con warnings |
 
+Las opciones con valor también aceptan `--opción=valor`. Las opciones desconocidas y los flags booleanos con valor (`--force=true`) terminan con código 2.
+
+`init` busca dependencias en los paquetes de workspace declarados en `pnpm-workspace.yaml` o en el campo `workspaces` de `package.json`. Soporta `dir/*` y rutas literales, e ignora los patrones más complejos. Solo sugiere `make check` si el Makefile tiene un target `check`.
+
 `sync` nunca pisa un archivo que no creó ni uno que editaste a mano, salvo que pases `--force`. Lo generado queda registrado en `.lean-agents.lock.json`.
 
 ## Configuración
@@ -135,7 +137,7 @@ adr = "docs/adr"
 
 [models]
 director = "strong"             # alias, o { claude = "claude-opus-5-5", codex = "gpt-6.1-sol" }
-director_effort = "high"        # minimal | low | medium | high | xhigh | max (se adapta a cada herramienta)
+director_effort = "high"        # minimal | low | medium | high | xhigh | max (se adapta a cada herramienta; max pasa a xhigh en las dos)
 
 [models.aliases.claude]         # opcional: cambiar un alias para una herramienta
 # balanced = "sonnet"
@@ -161,13 +163,15 @@ sandbox = "workspace-write"     # o "read-only"
 instructions = "Nunca registrar datos de tarjetas."
 # claude_tools = ["Read", "Grep", "Glob", "Bash"]   # opcional: herramientas explícitas en Claude Code
 
-[claude]                        # se agrega a .claude/settings.json
+[claude]                        # se agrega a .claude/settings.json (salvo model y effortLevel: usá [models])
 # [claude.permissions]
 # deny = ["Read(./.env)"]
 
 [codex]                         # se agrega a .codex/config.toml
 # approval_policy = "on-request"
 ```
+
+Las claves desconocidas son warnings, con una sugerencia cuando hay una parecida: `` `delegaton` does not exist, did you mean `delegation`? ``. `sync` e `init` las muestran, y `doctor` las reporta como LA003, así que fallan con `--strict`. `[claude]` y `[codex]` no se validan, porque pasan tal cual a cada herramienta.
 
 ### Presets
 

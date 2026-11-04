@@ -4,7 +4,7 @@ import { renderAll } from "../src/render.js";
 import { runDoctor, parseFrontmatter } from "../src/doctor.js";
 import { sync } from "../src/sync.js";
 import { writeInitialConfig } from "../src/init.js";
-import { readConfig } from "../src/config.js";
+import { readConfig, normalizeConfig } from "../src/config.js";
 import { PRESETS } from "../src/presets.js";
 import { tmpdir, write, baseAnswers, configFrom, ids } from "./helpers.js";
 
@@ -54,8 +54,52 @@ test("settings.json sets the director model, blocks nesting and merges [claude] 
   const cfg = configFrom(baseAnswers({ targets: ["claude"] }), '[claude.permissions]\ndeny = ["Read(./.env)"]\n\n[claude.env]\nFOO = "1"\n');
   const settings = JSON.parse(renderAll(cfg)[".claude/settings.json"]);
   assert.equal(settings.model, "opus");
+  assert.equal(settings.effortLevel, "high");
   assert.deepEqual(settings.permissions.deny, ["Read(./.env)"]);
   assert.deepEqual(settings.env, { CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: "1", FOO: "1" });
+});
+
+const directorEffort = (director_effort) =>
+  JSON.parse(renderAll(normalizeConfig({ targets: ["claude"], models: { director_effort } }))[".claude/settings.json"]).effortLevel;
+
+test("director_effort reaches effortLevel, using only levels settings accept", () => {
+  for (const level of ["low", "medium", "high", "xhigh"]) assert.equal(directorEffort(level), level);
+  assert.equal(directorEffort("minimal"), "low");
+  assert.equal(directorEffort("max"), "xhigh");
+});
+
+test("a director on max stays clean in doctor and subagents keep max", () => {
+  const root = tmpdir();
+  write(root, "orchestration.toml", 'targets = ["claude"]\n[models]\ndirector_effort = "max"\n[roles.reviewer]\neffort = "max"\n');
+  const cfg = readConfig(root);
+  sync(root, cfg);
+  assert.deepEqual(runDoctor(root).findings, []);
+  assert.equal(agentOf(renderAll(cfg), "reviewer").fields.effort, "max");
+});
+
+const settingsFindings = (settings) => {
+  const root = tmpdir();
+  write(root, "CLAUDE.md", "# x\n");
+  write(root, ".claude/settings.json", typeof settings === "string" ? settings : JSON.stringify(settings));
+  return runDoctor(root).findings;
+};
+
+test("doctor warns about an unknown effortLevel", () => {
+  for (const effortLevel of ["turbo", "max", "minimal", 3, null]) {
+    const f = settingsFindings({ effortLevel }).find((x) => x.id === "LA122");
+    assert.equal(f?.severity, "warn", String(effortLevel));
+    assert.equal(f.rule, "claude-invalid-effort-level");
+  }
+  for (const settings of [{ effortLevel: "xhigh" }, {}, "null", "[]", "1"]) {
+    assert.ok(!ids(settingsFindings(settings)).includes("LA122"), JSON.stringify(settings));
+  }
+});
+
+test("doctor notes that env.CLAUDE_CODE_EFFORT_LEVEL overrides effortLevel", () => {
+  const f = settingsFindings({ effortLevel: "high", env: { CLAUDE_CODE_EFFORT_LEVEL: "max" } }).find((x) => x.id === "LA123");
+  assert.equal(f?.severity, "info");
+  assert.match(f.message, /takes priority over effortLevel/);
+  assert.ok(!ids(settingsFindings({ effortLevel: "high", env: {} })).includes("LA123"));
 });
 
 for (const targets of [["claude"], ["codex"], ["claude", "codex"]]) {

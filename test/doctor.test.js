@@ -94,6 +94,27 @@ test("doctor reports generated files that drifted from orchestration.toml", () =
   assert.match(drift.message, /\.codex\/config\.toml/);
 });
 
+test("doctor reports unknown orchestration.toml keys as warnings", () => {
+  const root = tmpdir();
+  writeInitialConfig(root, baseAnswers());
+  write(root, "orchestration.toml", read(root, "orchestration.toml").replace("max_threads = 2", 'max_threads = 2\ndelegaton = "explicit"'));
+  sync(root, readConfig(root));
+  const { findings } = runDoctor(root);
+  assert.deepEqual(ids(findings), ["LA003"]);
+  assert.equal(findings[0].severity, "warn");
+  assert.equal(findings[0].rule, "orchestration-unknown-key");
+  assert.equal(findings[0].file, "orchestration.toml");
+  assert.match(findings[0].message, /`delegaton` does not exist, did you mean `delegation`\?/);
+});
+
+test("doctor reports unknown keys even when the config has errors", () => {
+  const root = tmpdir();
+  write(root, "orchestration.toml", 'preset = "huge"\n[role.pagos]\ndescription = "x"\n');
+  const found = ids(runDoctor(root).findings);
+  assert.ok(found.includes("LA002"));
+  assert.ok(found.includes("LA003"));
+});
+
 test("the bundled sts-to-tts example is in sync and clean", () => {
   const root = fileURLToPath(new URL("../examples/sts-to-tts", import.meta.url));
   const bad = runDoctor(root).findings;
