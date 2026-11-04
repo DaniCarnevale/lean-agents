@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "../src/cli.js";
 import { sync } from "../src/sync.js";
@@ -80,6 +80,63 @@ test("doctor fails on unknown keys only with --strict", () => {
   const strict = run("doctor", root, "--strict");
   assert.equal(strict.status, 1);
   assert.match(strict.stdout, /LA003/);
+});
+
+// Runs `init` as if on a terminal, sending each answer when its prompt appears.
+function initInteractive(args, answers) {
+  const script = `
+    import { main } from ${JSON.stringify(new URL("../src/cli.js", import.meta.url).href)};
+    process.stdin.isTTY = true;
+    process.exitCode = await main(${JSON.stringify(["init", ...args])});
+  `;
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ["--input-type=module", "-e", script]);
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`init did not finish. Output so far:\n${stdout}`));
+    }, 20000);
+    let stdout = "";
+    let sent = 0;
+    child.stdout.setEncoding("utf8").on("data", (chunk) => {
+      stdout += chunk;
+      const prompts = stdout.split("]: ").length - 1;
+      while (sent < prompts) child.stdin.write(`${answers[sent++] ?? ""}\n`);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ code, stdout });
+    });
+  });
+}
+
+test("interactive init asks each question and uses the answers", async () => {
+  const root = tmpdir();
+  const r = await initInteractive([root], ["codex", "demo-app", "es", "minimal"]);
+  assert.equal(r.code, 0, r.stdout);
+  const cfg = readConfig(root);
+  assert.deepEqual(cfg.targets, ["codex"]);
+  assert.equal(cfg.project.name, "demo-app");
+  assert.equal(cfg.language, "es");
+  assert.equal(cfg.preset, "minimal");
+});
+
+test("interactive init asks again after an invalid choice and accepts defaults", async () => {
+  const root = tmpdir();
+  const r = await initInteractive([root], ["cursor", "claude", "", "", ""]);
+  assert.equal(r.code, 0, r.stdout);
+  assert.match(r.stdout, /Choose one of: claude, codex, both/);
+  const cfg = readConfig(root);
+  assert.deepEqual(cfg.targets, ["claude"]);
+  assert.equal(cfg.language, "en");
+  assert.equal(cfg.preset, "standard");
+});
+
+test("interactive init does not ask for the tool when --target is given", async () => {
+  const root = tmpdir();
+  const r = await initInteractive([root, "--target=claude"], ["", "", ""]);
+  assert.equal(r.code, 0, r.stdout);
+  assert.doesNotMatch(r.stdout, /Which tool/);
+  assert.deepEqual(readConfig(root).targets, ["claude"]);
 });
 
 test("init writes a config with no unknown keys", () => {

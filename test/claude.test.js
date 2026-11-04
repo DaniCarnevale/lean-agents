@@ -30,17 +30,44 @@ test("read-only roles get a strict tool allowlist; specialists cannot nest subag
   const files = renderAll(
     configFrom(baseAnswers({ targets: ["claude"] }), '[roles.payments]\ndescription = "Payments specialist."\n')
   );
-  const reviewer = agentOf(files, "reviewer");
-  assert.equal(reviewer.fields.name, "reviewer");
-  assert.equal(reviewer.fields.tools, "Read, Grep, Glob");
-  assert.equal(reviewer.fields.model, "sonnet");
-  assert.equal(reviewer.fields.effort, "high");
-  assert.match(reviewer.body, /no terminal/);
-  assert.doesNotMatch(reviewer.body, /You may run read-only commands/);
+  const explorer = agentOf(files, "explorer");
+  assert.equal(explorer.fields.tools, "Read, Grep, Glob");
+  assert.match(explorer.body, /You do not modify files/);
   const payments = agentOf(files, "payments");
   assert.equal(payments.fields.disallowedTools, "Agent");
   assert.equal(payments.fields.model, "opus");
   assert.equal(payments.fields.tools, undefined);
+});
+
+test("the reviewer has Bash to read diffs but no edit tools, and can be made strict", () => {
+  const reviewer = agentOf(renderAll(configFrom(baseAnswers({ targets: ["claude"] }))), "reviewer");
+  assert.equal(reviewer.fields.name, "reviewer");
+  assert.equal(reviewer.fields.tools, "Read, Grep, Glob, Bash");
+  assert.equal(reviewer.fields.model, "sonnet");
+  assert.equal(reviewer.fields.effort, "high");
+  assert.match(reviewer.body, /git diff/);
+  assert.match(reviewer.body, /You may run read-only commands/);
+  assert.doesNotMatch(reviewer.body, /no terminal/);
+  assert.match(reviewer.body, /You do not modify files/);
+
+  const toml = baseAnswers({ targets: ["claude"], preset: "minimal" });
+  const strict = normalizeConfig({ targets: ["claude"], preset: toml.preset, roles: { reviewer: { claude_tools: ["Read", "Grep", "Glob"] } } });
+  const strictAgent = agentOf(renderAll(strict), "reviewer");
+  assert.equal(strictAgent.fields.tools, "Read, Grep, Glob");
+  assert.match(strictAgent.body, /no terminal/);
+});
+
+test("doctor only flags edit tools on a read-only role", () => {
+  const roleWith = (tools) => {
+    const root = tmpdir();
+    write(root, "CLAUDE.md", "# x\n");
+    write(root, ".claude/settings.json", '{ "env": { "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1" } }');
+    write(root, ".claude/agents/a.md", `---\nname: a\ndescription: d\ntools: ${tools}\n---\nDo not modify files.\n`);
+    return ids(runDoctor(root).findings);
+  };
+  assert.ok(!roleWith("Read, Grep, Glob, Bash").includes("LA136"));
+  assert.ok(roleWith("Read, Write").includes("LA136"));
+  assert.ok(roleWith("Read, Bash, Edit").includes("LA136"));
 });
 
 test("descriptions carry the delegation policy, since Claude delegates on its own", () => {

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Claude Code: `reviewer` now has Bash, so it can read diffs and run checks. It still has no edit tools, but Bash can write, so its read-only rule rests on its instructions. Set `claude_tools = ["Read", "Grep", "Glob"]` for a strict reviewer. LA136 now flags only edit tools.
+- README: "real limits" became "clear limits", because Codex has no per-role limits.
 - Codex, aligned with its current docs. Run `sync` to update existing projects:
   - Generated files use `max_concurrent_threads_per_session` and no longer write `max_depth`, which Codex does not document, or `sandbox_mode` in agent files, which Codex ignores. Read-only and no-nesting rules for Codex subagents now rely on their instructions.
   - Effort levels: `max` reaches Codex as written, `ultra` is new (`max` in Claude Code), and `minimal` becomes `low`.

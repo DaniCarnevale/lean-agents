@@ -9,7 +9,8 @@ const CODEX_EFFORTS = TARGET_EFFORTS.codex;
 const CLAUDE_EFFORTS = TARGET_EFFORTS.claude;
 const CLAUDE_MODEL_ALIASES = ["sonnet", "opus", "haiku", "fable", "inherit"];
 const CLAUDE_PERMISSION_MODES = ["default", "acceptEdits", "auto", "dontAsk", "bypassPermissions", "plan", "manual"];
-const CLAUDE_WRITE_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit", "Bash"];
+// Bash is left out: Claude Code's own read-only reviewer example uses it to read diffs.
+const CLAUDE_WRITE_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 
 // Codex defaults this to 32 KiB; instructions beyond it are silently dropped.
 export const PROJECT_DOC_MAX_BYTES = 32 * 1024;
@@ -497,7 +498,7 @@ function checkClaude({ root, files, rel, add }, agentsMdText) {
     if (READ_ONLY_HINT.test(body)) {
       const canWrite = tools === null ? !CLAUDE_WRITE_TOOLS.every((t) => denied.includes(t)) : tools.some((t) => CLAUDE_WRITE_TOOLS.includes(toolName(t)));
       if (canWrite) {
-        add("LA136", "warn", r, `"${fm.name ?? r}" is told not to modify files, but its tools still allow writing (Write, Edit or Bash).`, "Set tools: Read, Grep, Glob (leave Bash out for strict read-only).");
+        add("LA136", "warn", r, `"${fm.name ?? r}" is told not to modify files, but its tools still include edit tools such as Write or Edit.`, "Set tools: Read, Grep, Glob, adding Bash only if it must run commands.");
       }
     }
     result.agents[result.agents.length - 1].canSpawn = tools === null ? !denied.includes("Agent") : tools.some((t) => toolName(t) === "Agent");

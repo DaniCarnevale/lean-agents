@@ -27,7 +27,9 @@ export const PRESETS = {
 };
 
 export const BUILTIN_ROLE_DEFAULTS = {
-  reviewer: { model: "balanced", effort: "high", sandbox: "read-only" },
+  // Bash lets it read diffs and run checks. It is the one read-only role that can
+  // run commands, so in Claude Code its read-only rule rests on its instructions.
+  reviewer: { model: "balanced", effort: "high", sandbox: "read-only", claudeTools: ["Read", "Grep", "Glob", "Bash"] },
   explorer: { model: "fast", effort: "medium", sandbox: "read-only" },
   ui_auditor: { model: "fast", effort: "high", sandbox: "read-only" },
 };

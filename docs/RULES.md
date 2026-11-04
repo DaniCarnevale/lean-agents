@@ -50,7 +50,7 @@
 | LA133 | claude-unknown-model | warn | `model` is not an alias (`sonnet`, `opus`, `haiku`, `fable`, `inherit`) nor a full `claude-*` id. |
 | LA134 | claude-invalid-effort | warn | `effort` not in `low`, `medium`, `high`, `xhigh`, `max`. |
 | LA135 | claude-invalid-permission-mode | warn | `permissionMode` is not a documented value. |
-| LA136 | claude-read-only-role-without-tool-limits | warn | The body says "do not modify files" but the tools still include Write, Edit or Bash. |
+| LA136 | claude-read-only-role-without-tool-limits | warn | The body says "do not modify files" but the tools still include edit tools such as Write or Edit. Bash is allowed, because a reviewer needs it to read diffs. |
 | LA137 | claude-director-weaker-than-subagent | info | A subagent's model is stronger than the project default model in `.claude/settings.json`. |
 | LA138 | claude-agent-descriptions-budget | info | Subagent descriptions are long enough to approach Claude Code's startup warning. |
 | LA140 | claude-skills-not-shared | info | The repo uses Claude Code and has Codex skills, but no `.claude/skills/`. |

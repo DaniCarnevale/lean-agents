@@ -15,13 +15,13 @@ npx github:DaniCarnevale/lean-agents init --target both     # las dos, con una s
 ## Qué obtenés
 
 - **Un director.** Tu sesión principal planifica, implementa e integra el trabajo. Delega solo cuando eso aporta algo: una revisión independiente, una búsqueda de solo lectura que le ensuciaría el contexto, o trabajo de especialista realmente separado.
-- **Pocos ayudantes, con límites reales.**
+- **Pocos ayudantes, con límites claros.**
   - `reviewer`: revisa diffs con contexto fresco.
   - `explorer`: búsquedas baratas de solo lectura en código y logs.
   - `ui_auditor`: auditoría de UI y accesibilidad.
   - Los especialistas que declares vos.
 
-  En Claude Code, los roles de solo lectura se aplican con los permisos de la herramienta. Codex no tiene límites por rol, así que ahí dependen de sus instrucciones.
+  En Claude Code, los roles de solo lectura no tienen herramientas de edición, y solo `reviewer` tiene terminal, para leer diffs. Codex no tiene límites por rol, así que ahí dependen de sus instrucciones.
 - **Skills para los procedimientos que se repiten.**
   - `intake`: convierte un pedido en un borrador breve para aprobar.
   - `adr`: registra decisiones de arquitectura.
@@ -38,7 +38,7 @@ npx github:DaniCarnevale/lean-agents init --target both     # las dos, con una s
 | Subagentes | `.claude/agents/*.md` | `.codex/agents/*.toml` |
 | Skills | `.claude/skills/<nombre>/SKILL.md` (se usan con `/<nombre>`) | `.agents/skills/<nombre>/SKILL.md` (se usan con `$<nombre>`) |
 | Configuración | `.claude/settings.json` (modelo y effort del director, sin subagentes anidados) | `.codex/config.toml` (modelo y effort del director, `max_concurrent_threads_per_session`) |
-| Roles de solo lectura | `tools: Read, Grep, Glob` | Solo instrucciones (los subagentes heredan el sandbox de la sesión) |
+| Roles de solo lectura | `tools: Read, Grep, Glob` (`reviewer` suma Bash) | Solo instrucciones (los subagentes heredan el sandbox de la sesión) |
 | Modelos por defecto (`strong` / `balanced` / `fast`) | `opus` / `sonnet` / `haiku` | `gpt-6.1-sol` / `gpt-6-sol` / `gpt-6-luna` |
 
 Con `--target both`, las instrucciones viven en `AGENTS.md` y `CLAUDE.md` lo importa (`@AGENTS.md`), así las dos herramientas siguen las mismas reglas. Cada herramienta tiene sus propias carpetas de agentes y skills.
@@ -220,7 +220,7 @@ La lista completa de reglas está en [docs/RULES.md](docs/RULES.md). Termina con
 
 - Los nombres de los modelos cambian seguido. Los alias (`strong`, `balanced`, `fast`) mantienen estable tu configuración; los podés cambiar en `[models.aliases.<herramienta>]`.
 - Las palabras clave de `ORQUESTACIÓN` son una convención de conversación, no una función de la herramienta. Por eso las instrucciones le indican al director que, ante la duda, asuma OFF.
-- En Claude Code, los roles de solo lectura no tienen terminal, así que las verificaciones que requieren comandos las corre el director. Si querés que un rol las corra, dale `claude_tools`, sabiendo que Bash también puede escribir.
+- En Claude Code, `reviewer` tiene Bash para leer diffs y correr checks, y Bash también puede escribir, así que su regla de solo lectura depende de sus instrucciones. Para un reviewer estricto, poné `claude_tools = ["Read", "Grep", "Glob"]` y pasale el diff en el encargo. `explorer` y `ui_auditor` no tienen terminal, así que las verificaciones que requieren comandos las corre el director.
 - Más agentes no es más calidad. Medí antes de escalar: corré algunas tareas reales con `ORQUESTACIÓN OFF` y con delegación, y compará tiempo, tokens y hallazgos de revisión.
 
 El razonamiento detrás del diseño está en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

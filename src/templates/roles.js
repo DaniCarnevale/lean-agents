@@ -99,7 +99,7 @@ function roleBody(cfg, role, target) {
   const t = T[cfg.language];
   const parts = [t.preamble(role.name), ""];
   let body = role.builtin ? t[role.name] : t.custom(role);
-  // Claude Code read-only roles get no shell at all (strict allowlist).
+  // Claude Code read-only roles get no shell unless their tool list includes Bash.
   const claudeReadOnly = target === "claude" && role.sandbox === "read-only" && !(role.claudeTools ?? []).includes("Bash");
   if (claudeReadOnly) body = body.replace(t.shellSentence, t.noShell);
   parts.push(body);

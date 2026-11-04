@@ -26,7 +26,7 @@ The same shape is generated for Claude Code and Codex. Only the file formats and
 |---|---|---|
 | Instructions | `CLAUDE.md` (imports `AGENTS.md` when both tools are used) | `AGENTS.md` |
 | Role definition | `.claude/agents/<role>.md`, YAML frontmatter + body | `.codex/agents/<role>.toml` |
-| Read-only | `tools: Read, Grep, Glob` (no Bash, no Agent) | instructions only: subagents inherit the parent's sandbox |
+| Read-only | `tools: Read, Grep, Glob` (no Agent); `reviewer` also gets Bash | instructions only: subagents inherit the parent's sandbox |
 | No nested subagents | `disallowedTools: Agent` + `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` | instructions only: Codex documents no depth limit |
 | Parallelism | stated in the instructions | `[agents] max_concurrent_threads_per_session` |
 | When to delegate | the description (Claude delegates on its own) | the instructions (Codex spawns on request or when `AGENTS.md` asks) |
@@ -48,7 +48,9 @@ Intake turns a request into an approvable draft, and it has to wait for the user
 
 ## Why enforcement and not just prompts
 
-"Do not modify files" in a prompt is a request. A tool allowlist is a guarantee, so Claude Code's read-only roles get one, and an over-eager reviewer cannot "just fix it" and leave the director integrating changes it never planned.
+"Do not modify files" in a prompt is a request. A tool allowlist is a guarantee, so Claude Code's read-only roles get one, without edit tools. An over-eager reviewer has no Write or Edit to "just fix it" and leave the director integrating changes it never planned.
+
+The reviewer is the one exception to a full guarantee. It gets Bash because a review needs `git diff`, and Bash can also write, so that part rests on its instructions. `explorer` and `ui_auditor` have no terminal. To make the reviewer strict too, set `claude_tools = ["Read", "Grep", "Glob"]` and have the director put the diff in the brief.
 
 Codex offers no equivalent per role: a custom agent inherits the parent's sandbox and approvals, and its file cannot change them. Read-only roles there rely on their instructions. To enforce read-only in Codex, set the sandbox on the parent session, which then applies to every agent.
 

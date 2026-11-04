@@ -15,13 +15,13 @@ npx github:DaniCarnevale/lean-agents init --target both     # both tools, one sh
 ## What you get
 
 - **A director.** Your main session plans, implements and integrates the work. It delegates only when that adds something: an independent review, a read-only search that would clutter its context, or specialist work that is truly separate.
-- **A few helpers with real limits.**
+- **A few helpers with clear limits.**
   - `reviewer`: reviews diffs with fresh context.
   - `explorer`: cheap read-only searches through code and logs.
   - `ui_auditor`: UI and accessibility audits.
   - Any specialists you declare yourself.
 
-  In Claude Code, read-only roles are enforced by tool permissions. Codex has no per-role limit, so there they rely on their instructions.
+  In Claude Code, read-only roles get no edit tools, and only `reviewer` gets a terminal, to read diffs. Codex has no per-role limit, so there they rely on their instructions.
 - **Skills for the recurring procedures.**
   - `intake`: turns a request into a short draft to approve.
   - `adr`: records architecture decisions.
@@ -38,7 +38,7 @@ npx github:DaniCarnevale/lean-agents init --target both     # both tools, one sh
 | Subagents | `.claude/agents/*.md` | `.codex/agents/*.toml` |
 | Skills | `.claude/skills/<name>/SKILL.md` (run with `/<name>`) | `.agents/skills/<name>/SKILL.md` (run with `$<name>`) |
 | Settings | `.claude/settings.json` (director model and effort, no nested subagents) | `.codex/config.toml` (director model and effort, `max_concurrent_threads_per_session`) |
-| Read-only roles | `tools: Read, Grep, Glob` | Instructions only (subagents inherit the session's sandbox) |
+| Read-only roles | `tools: Read, Grep, Glob` (`reviewer` also gets Bash) | Instructions only (subagents inherit the session's sandbox) |
 | Default models (`strong` / `balanced` / `fast`) | `opus` / `sonnet` / `haiku` | `gpt-6.1-sol` / `gpt-6-sol` / `gpt-6-luna` |
 
 With `--target both`, `AGENTS.md` holds the instructions and `CLAUDE.md` imports it (`@AGENTS.md`), so both tools follow the same rules. Each tool gets its own agents and skills folders.
@@ -220,7 +220,7 @@ The full list is in [docs/RULES.md](docs/RULES.md). It exits with 1 on errors, o
 
 - Model names change often. Aliases (`strong`, `balanced`, `fast`) keep your config stable; remap them in `[models.aliases.<tool>]`.
 - The `ORCHESTRATION` keywords are a conversation convention, not a tool feature. The instructions tell the director to assume OFF when it is unsure.
-- In Claude Code, read-only roles have no terminal, so the director runs the checks that need commands. Give a role `claude_tools` if you want it to run them, knowing that Bash can also write.
+- In Claude Code, `reviewer` has Bash so it can read diffs and run checks, and Bash can also write, so its read-only rule rests on its instructions. For a strict reviewer, set `claude_tools = ["Read", "Grep", "Glob"]` and put the diff in the brief. `explorer` and `ui_auditor` have no terminal, so the director runs the checks that need commands.
 - More agents is not more quality. Measure before you scale: run a few real tasks with `ORCHESTRATION OFF` and with delegation, and compare time, tokens and review findings.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the reasoning behind the design.

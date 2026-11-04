@@ -200,7 +200,7 @@ export function normalizeConfig(raw) {
       model: resolvePerTarget(user.model ?? defaults.model, validTargets, aliases, `role "${name}".model`, problems),
       effort: effortsPerTarget(effort, validTargets),
       sandbox,
-      claudeTools: user.claude_tools ? asList(user.claude_tools) : null,
+      claudeTools: user.claude_tools ? asList(user.claude_tools) : (defaults.claudeTools ?? null),
     });
   }
 

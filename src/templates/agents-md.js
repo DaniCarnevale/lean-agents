@@ -256,7 +256,7 @@ const CLAUDE_T = {
     title: "Claude Code",
     notes: [
       "Los subagentes de este proyecto están en `.claude/agents/` y las skills en `.claude/skills/` (se invocan con `/<nombre>`).",
-      "Los roles de solo lectura no tienen terminal ni herramientas de escritura; las verificaciones que requieren ejecutar comandos las hacés vos.",
+      "Los roles de solo lectura no tienen herramientas de edición. Los que tampoco tienen terminal te dejan a vos las verificaciones que requieren ejecutar comandos.",
     ],
   },
   en: {
@@ -264,7 +264,7 @@ const CLAUDE_T = {
     title: "Claude Code",
     notes: [
       "This project's subagents live in `.claude/agents/` and its skills in `.claude/skills/` (invoke them with `/<name>`).",
-      "Read-only roles have no terminal or write tools; you run the checks that need commands.",
+      "Read-only roles have no edit tools. Those without a terminal also leave the checks that need commands to you.",
     ],
   },
 };
