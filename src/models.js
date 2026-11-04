@@ -22,6 +22,7 @@ export const MODEL_TIERS = {
     "gpt-6-astra": 3,
     "gpt-6.1-sol": 3,
     "gpt-6-sol": 2,
+    "gpt-6.1-terra": 2,
     "gpt-6-luna": 1,
     "gpt-5.6-sol": 2,
     "gpt-5.6-terra": 2,
@@ -40,9 +41,9 @@ export const MODEL_TIERS = {
 export const TIER_NAMES = { 1: "fast", 2: "balanced", 3: "strong" };
 
 // Union of the levels both tools accept; each target maps the ones it lacks.
-export const REASONING_EFFORTS = ["minimal", "low", "medium", "high", "xhigh", "max"];
+export const REASONING_EFFORTS = ["minimal", "low", "medium", "high", "xhigh", "max", "ultra"];
 export const TARGET_EFFORTS = {
-  codex: ["minimal", "low", "medium", "high", "xhigh"],
+  codex: ["low", "medium", "high", "xhigh", "max", "ultra"],
   claude: ["low", "medium", "high", "xhigh", "max"],
 };
 
@@ -51,8 +52,8 @@ export const TARGET_EFFORTS = {
 export const CLAUDE_SETTINGS_EFFORTS = ["low", "medium", "high", "xhigh"];
 
 export function effortFor(target, effort) {
-  if (target === "codex" && effort === "max") return "xhigh";
-  if (target === "claude" && effort === "minimal") return "low";
+  if (effort === "minimal") return "low";
+  if (target === "claude" && effort === "ultra") return "max";
   return effort;
 }
 

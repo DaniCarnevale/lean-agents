@@ -115,7 +115,8 @@ function roleDescription(cfg, role) {
   return role.builtin ? DESCRIPTIONS[cfg.language][role.name] : role.description;
 }
 
-// Codex only spawns subagents on request, so the description just says when.
+// Codex spawns subagents on request or when AGENTS.md asks for it, so the
+// description just says when.
 function codexDescription(cfg, role) {
   const base = roleDescription(cfg, role);
   if (role.name !== "reviewer" || !role.builtin) return base;
@@ -130,7 +131,6 @@ export function renderRole(cfg, role) {
     `description = ${str(codexDescription(cfg, role))}`,
     `model = ${str(role.model.codex)}`,
     `model_reasoning_effort = ${str(role.effort.codex)}`,
-    `sandbox_mode = ${str(role.sandbox)}`,
     `developer_instructions = ${multiline(roleBody(cfg, role, "codex"))}`,
     "",
   ].join("\n");
@@ -194,7 +194,7 @@ export function renderCodexConfig(cfg) {
   const scalars = Object.fromEntries(Object.entries(extra).filter(([, v]) => !isTable(v)));
   const tables = Object.fromEntries(Object.entries(extra).filter(([, v]) => isTable(v)));
   if (Object.keys(scalars).length) lines.push(stringify(scalars).trim());
-  lines.push("", "[agents]", `max_threads = ${cfg.orchestration.max_threads}`, "max_depth = 1");
+  lines.push("", "[agents]", `max_concurrent_threads_per_session = ${cfg.orchestration.max_threads}`);
   if (Object.keys(tables).length) lines.push("", stringify(tables).trim());
   lines.push("");
   return lines.join("\n");

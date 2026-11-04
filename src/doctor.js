@@ -13,17 +13,18 @@ const CLAUDE_WRITE_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit", "Bash"
 
 // Codex defaults this to 32 KiB; instructions beyond it are silently dropped.
 export const PROJECT_DOC_MAX_BYTES = 32 * 1024;
-const KNOWN_AGENTS_KEYS = new Set(["max_threads", "max_depth", "job_max_runtime_seconds"]);
-const KEY_SUGGESTIONS = {
-  max_concurrent_threads_per_session: "max_threads",
-  max_concurrent_threads: "max_threads",
-  max_parallel: "max_threads",
-  threads: "max_threads",
-  depth: "max_depth",
-  default_subagent_model: "`model` in each .codex/agents/*.toml file",
-  default_subagent_reasoning_effort: "`model_reasoning_effort` in each .codex/agents/*.toml file",
-  enabled: null, // no replacement needed: subagents are available without a flag
+const THREAD_KEY = "max_concurrent_threads_per_session";
+const LEGACY_THREAD_KEY = "max_threads";
+const KNOWN_AGENTS_KEYS = new Set(["enabled", THREAD_KEY, LEGACY_THREAD_KEY, "default_subagent_model", "default_subagent_reasoning_effort", "interrupt_message"]);
+const KEY_HINTS = {
+  max_concurrent_threads: `Use ${THREAD_KEY} instead.`,
+  max_parallel: `Use ${THREAD_KEY} instead.`,
+  threads: `Use ${THREAD_KEY} instead.`,
+  max_depth: "Remove it: Codex documents no depth limit, so tell subagents not to spawn agents in their instructions.",
+  depth: "Remove it: Codex documents no depth limit, so tell subagents not to spawn agents in their instructions.",
 };
+// Codex ignores these in a custom agent file: subagents inherit them from the parent.
+const PARENT_ONLY_AGENT_KEYS = ["sandbox_mode", "approval_policy", "model_provider", "mcp_servers", "service_tier"];
 const SKIP_DIRS = new Set(["node_modules", ".git", ".venv", "venv", "dist", "build", ".uv-cache", ".next", "target", "__pycache__", ".pytest_cache"]);
 const READ_ONLY_HINT = /(no modifiques|no edites|no implementes|no escribas|solo lectura|do not modify|don't modify|do not edit|don't edit|do not implement|read[- ]only|must not (modify|edit|write))/i;
 const GUARD_HINT = /(subagent|subagente)[^\n]{0,200}(skip|salte|ignor|no aplica|does not apply|doesn't apply)|(skip|salte|ignor|no aplica|does not apply)[^\n]{0,200}(subagent|subagente)/i;
@@ -37,17 +38,17 @@ export const RULES = {
   LA011: "instructions-too-large",
   LA012: "subagent-guard-missing",
   LA020: "unknown-agents-key",
-  LA021: "max-depth-above-one",
   LA022: "many-threads",
   LA023: "no-thread-limit",
+  LA024: "legacy-thread-key",
   LA030: "agent-missing-field",
   LA031: "duplicate-agent-name",
   LA032: "invalid-sandbox-mode",
-  LA033: "full-access-agent",
+  LA033: "full-access-session",
   LA034: "invalid-reasoning-effort",
-  LA035: "read-only-role-without-sandbox",
   LA036: "director-weaker-than-subagent",
   LA037: "unknown-model",
+  LA038: "agent-setting-ignored",
   LA040: "skills-in-unscanned-folder",
   LA041: "skill-missing-frontmatter",
   LA042: "skill-name-mismatch",
@@ -177,23 +178,25 @@ function checkCodexConfig({ root, add }) {
       for (const [key, value] of Object.entries(agents)) {
         if (value && typeof value === "object" && !Array.isArray(value)) continue; // [agents.<name>] tables
         if (KNOWN_AGENTS_KEYS.has(key)) continue;
-        const hint =
-          key in KEY_SUGGESTIONS
-            ? KEY_SUGGESTIONS[key]
-              ? ` Use ${KEY_SUGGESTIONS[key]} instead.`
-              : " Remove it: subagents need no enable flag."
-            : "";
+        const hint = key in KEY_HINTS ? ` ${KEY_HINTS[key]}` : "";
         add("LA020", "warn", ".codex/config.toml", `[agents].${key} is not a documented Codex setting and is most likely ignored.${hint}`, `Known keys: ${[...KNOWN_AGENTS_KEYS].join(", ")}.`);
       }
-      if (typeof agents.max_depth === "number" && agents.max_depth > 1) {
-        add("LA021", "warn", ".codex/config.toml", `max_depth = ${agents.max_depth} lets subagents spawn subagents; token use and latency grow quickly.`, "Keep max_depth = 1 unless you have measured a benefit.");
+      if (LEGACY_THREAD_KEY in agents) {
+        add("LA024", "info", ".codex/config.toml", `[agents].${LEGACY_THREAD_KEY} is a legacy alias of ${THREAD_KEY}.`, `Rename it to ${THREAD_KEY}.`);
       }
-      if (typeof agents.max_threads === "number" && agents.max_threads > 4) {
-        add("LA022", "info", ".codex/config.toml", `max_threads = ${agents.max_threads}. Token use grows roughly linearly with concurrent agents.`, "2 is usually enough for review + exploration.");
+      const threads = agents[THREAD_KEY] ?? agents[LEGACY_THREAD_KEY];
+      if (typeof threads === "number" && threads > 4) {
+        add("LA022", "info", ".codex/config.toml", `The thread limit is ${threads}. Token use grows roughly linearly with concurrent agents.`, "2 is usually enough for review + exploration.");
       }
     }
     if (codexConfig?.model_reasoning_effort && !CODEX_EFFORTS.includes(codexConfig.model_reasoning_effort)) {
-      add("LA034", "warn", ".codex/config.toml", `model_reasoning_effort = "${codexConfig.model_reasoning_effort}" is not a known level.`, `Use one of ${CODEX_EFFORTS.join(", ")}.`);
+      add("LA034", "warn", ".codex/config.toml", `model_reasoning_effort = "${codexConfig.model_reasoning_effort}" is not a documented level.`, `Use one of ${CODEX_EFFORTS.join(", ")}, if the model supports it.`);
+    }
+    if (codexConfig?.sandbox_mode && !SANDBOX_MODES.includes(codexConfig.sandbox_mode)) {
+      add("LA032", "error", ".codex/config.toml", `sandbox_mode = "${codexConfig.sandbox_mode}" is not valid.`, `Use one of ${SANDBOX_MODES.join(", ")}.`);
+    }
+    if (codexConfig?.sandbox_mode === "danger-full-access") {
+      add("LA033", "warn", ".codex/config.toml", "The session runs with danger-full-access, and subagents inherit it.", "Prefer workspace-write.");
     }
   }
 
@@ -214,18 +217,11 @@ function checkCodexAgents({ root, rel, add }, codexConfig) {
       for (const field of ["name", "description", "developer_instructions"]) {
         if (!data[field]) add("LA030", "error", r, `Missing required field "${field}".`, "Codex needs name, description and developer_instructions for a custom agent.");
       }
-      if (data.sandbox_mode && !SANDBOX_MODES.includes(data.sandbox_mode)) {
-        add("LA032", "error", r, `sandbox_mode = "${data.sandbox_mode}" is not valid.`, `Use one of ${SANDBOX_MODES.join(", ")}.`);
-      }
-      if (data.sandbox_mode === "danger-full-access") {
-        add("LA033", "warn", r, "This agent runs with danger-full-access.", "Prefer workspace-write; subagents rarely need full access.");
+      for (const key of PARENT_ONLY_AGENT_KEYS) {
+        if (key in data) add("LA038", "warn", r, `Codex ignores ${key} in a custom agent file: subagents inherit it from the parent session.`, "Remove it, and set it in .codex/config.toml if the whole session needs it.");
       }
       if (data.model_reasoning_effort && !CODEX_EFFORTS.includes(data.model_reasoning_effort)) {
-        add("LA034", "warn", r, `model_reasoning_effort = "${data.model_reasoning_effort}" is not a known level.`, `Use one of ${CODEX_EFFORTS.join(", ")}.`);
-      }
-      const instr = String(data.developer_instructions ?? "");
-      if (READ_ONLY_HINT.test(instr) && data.sandbox_mode !== "read-only") {
-        add("LA035", "warn", r, `"${data.name ?? f}" is told not to modify files, but nothing enforces it.`, 'Add sandbox_mode = "read-only".');
+        add("LA034", "warn", r, `model_reasoning_effort = "${data.model_reasoning_effort}" is not a documented level.`, `Use one of ${CODEX_EFFORTS.join(", ")}, if the model supports it.`);
       }
       if (data.model && tierOf("codex", data.model) === undefined) {
         add("LA037", "info", r, `Model "${data.model}" is not in lean-agents' tier table, so tier checks were skipped.`, "Fine if the id is valid for your Codex account.");
@@ -238,8 +234,9 @@ function checkCodexAgents({ root, rel, add }, codexConfig) {
       if (seen.has(n)) add("LA031", "error", a.file, `Agent name "${n}" is also used by ${seen.get(n)}.`, "Names must be unique.");
       else seen.set(n, a.file);
     }
-    if (agents.length && !(codexConfig?.agents && "max_threads" in codexConfig.agents)) {
-      add("LA023", "info", ".codex/config.toml", "Custom agents exist but [agents].max_threads is not set (Codex default: 6).", "Set max_threads to the parallelism you actually want, e.g. 2.");
+    const limits = codexConfig?.agents ?? {};
+    if (agents.length && !(THREAD_KEY in limits || LEGACY_THREAD_KEY in limits)) {
+      add("LA023", "info", ".codex/config.toml", `Custom agents exist but [agents].${THREAD_KEY} is not set, so Codex chooses the limit.`, `Set ${THREAD_KEY} to the parallelism you actually want, e.g. 2.`);
     }
     const director = codexConfig?.model;
     const dTier = tierOf("codex", director);

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Codex, aligned with its current docs. Run `sync` to update existing projects:
+  - Generated files use `max_concurrent_threads_per_session` and no longer write `max_depth`, which Codex does not document, or `sandbox_mode` in agent files, which Codex ignores. Read-only and no-nesting rules for Codex subagents now rely on their instructions.
+  - Effort levels: `max` reaches Codex as written, `ultra` is new (`max` in Claude Code), and `minimal` becomes `low`.
+  - doctor: LA020 accepts every documented `[agents]` key, LA024 reports the legacy `max_threads`, LA038 reports agent settings that Codex ignores, and LA032 and LA033 now check `.codex/config.toml`. LA021 and LA035 are removed.
 - `models.director_effort` now reaches Claude Code as `effortLevel` in `.claude/settings.json`. Claude Code does not accept `max` in that key, so `max` is written as `xhigh`. Run `sync` to update existing projects.
 - `[claude].effortLevel` is now an error: use `models.director_effort`.
 - doctor: LA122 (unknown `effortLevel`) and LA123 (`env.CLAUDE_CODE_EFFORT_LEVEL` overrides `effortLevel`).

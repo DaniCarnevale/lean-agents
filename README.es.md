@@ -21,7 +21,7 @@ npx github:DaniCarnevale/lean-agents init --target both     # las dos, con una s
   - `ui_auditor`: auditoría de UI y accesibilidad.
   - Los especialistas que declares vos.
 
-  Los roles de solo lectura se aplican con los permisos de la propia herramienta, no con un pedido amable en el prompt.
+  En Claude Code, los roles de solo lectura se aplican con los permisos de la herramienta. Codex no tiene límites por rol, así que ahí dependen de sus instrucciones.
 - **Skills para los procedimientos que se repiten.**
   - `intake`: convierte un pedido en un borrador breve para aprobar.
   - `adr`: registra decisiones de arquitectura.
@@ -37,8 +37,8 @@ npx github:DaniCarnevale/lean-agents init --target both     # las dos, con una s
 | Instrucciones del proyecto | `CLAUDE.md` | `AGENTS.md` |
 | Subagentes | `.claude/agents/*.md` | `.codex/agents/*.toml` |
 | Skills | `.claude/skills/<nombre>/SKILL.md` (se usan con `/<nombre>`) | `.agents/skills/<nombre>/SKILL.md` (se usan con `$<nombre>`) |
-| Configuración | `.claude/settings.json` (modelo y effort del director, sin subagentes anidados) | `.codex/config.toml` (modelo del director, `max_threads`, `max_depth = 1`) |
-| Roles de solo lectura | `tools: Read, Grep, Glob` | `sandbox_mode = "read-only"` |
+| Configuración | `.claude/settings.json` (modelo y effort del director, sin subagentes anidados) | `.codex/config.toml` (modelo y effort del director, `max_concurrent_threads_per_session`) |
+| Roles de solo lectura | `tools: Read, Grep, Glob` | Solo instrucciones (los subagentes heredan el sandbox de la sesión) |
 | Modelos por defecto (`strong` / `balanced` / `fast`) | `opus` / `sonnet` / `haiku` | `gpt-6.1-sol` / `gpt-6-sol` / `gpt-6-luna` |
 
 Con `--target both`, las instrucciones viven en `AGENTS.md` y `CLAUDE.md` lo importa (`@AGENTS.md`), así las dos herramientas siguen las mismas reglas. Cada herramienta tiene sus propias carpetas de agentes y skills.
@@ -78,7 +78,8 @@ npx lean-agents init
 **En Codex**
 
 - Abrí `codex` en el proyecto. Los agentes del proyecto se cargan solo si marcás el proyecto como confiable.
-- Codex lanza subagentes solo cuando se lo pedís: *"lanzá reviewer sobre el diff actual"*.
+- Codex lanza subagentes cuando se lo pedís o cuando `AGENTS.md` lo indica. Para asegurarte de que se use uno, pedilo: *"lanzá reviewer sobre el diff actual"*.
+- Para forzar solo lectura, configurá el sandbox de la sesión (por ejemplo `sandbox_mode` en `[codex]`). Aplica al director y a todos los subagentes.
 - Las skills se usan con `$intake`, `$verify` y `$adr`.
 
 **En las dos herramientas**
@@ -137,7 +138,7 @@ adr = "docs/adr"
 
 [models]
 director = "strong"             # alias, o { claude = "claude-opus-5-5", codex = "gpt-6.1-sol" }
-director_effort = "high"        # minimal | low | medium | high | xhigh | max (se adapta a cada herramienta; max pasa a xhigh en las dos)
+director_effort = "high"        # low | medium | high | xhigh | max | ultra (se adapta a cada herramienta, ver abajo)
 
 [models.aliases.claude]         # opcional: cambiar un alias para una herramienta
 # balanced = "sonnet"
@@ -159,7 +160,7 @@ description = "Especialista en pagos: adaptadores de proveedores, idempotencia, 
 focus = ["claves de idempotencia", "firma de webhooks"]
 model = "strong"
 effort = "high"
-sandbox = "workspace-write"     # o "read-only"
+sandbox = "workspace-write"     # o "read-only" (límites de herramientas en Claude Code, instrucciones en Codex)
 instructions = "Nunca registrar datos de tarjetas."
 # claude_tools = ["Read", "Grep", "Glob", "Bash"]   # opcional: herramientas explícitas en Claude Code
 
@@ -170,6 +171,8 @@ instructions = "Nunca registrar datos de tarjetas."
 [codex]                         # se agrega a .codex/config.toml
 # approval_policy = "on-request"
 ```
+
+Los niveles de effort dependen de la herramienta y del modelo. Codex recibe el nivel tal como lo escribís. Claude Code recibe `max` en lugar de `ultra`, y su ajuste `effortLevel`, que se usa para el director, recibe `xhigh` en lugar de `max` o `ultra`. `minimal` se sigue aceptando y pasa a `low` en las dos.
 
 Las claves desconocidas son warnings, con una sugerencia cuando hay una parecida: `` `delegaton` does not exist, did you mean `delegation`? ``. `sync` e `init` las muestran, y `doctor` las reporta como LA003, así que fallan con `--strict`. `[claude]` y `[codex]` no se validan, porque pasan tal cual a cada herramienta.
 
@@ -195,7 +198,7 @@ Las claves desconocidas son warnings, con una sugerencia cuando hay una parecida
   - un `AGENTS.override.md` que tapa al `AGENTS.md`;
   - skills en una carpeta que Codex no lee;
   - claves de `[agents]` que no existen;
-  - roles de solo lectura sin sandbox;
+  - ajustes de agente que Codex ignora, como `sandbox_mode`;
   - instrucciones que superan el límite de tamaño.
 - **Las dos:**
   - un protocolo de director que los subagentes también leen, sin ninguna línea que les diga que lo salteen;

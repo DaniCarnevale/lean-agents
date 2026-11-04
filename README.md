@@ -21,7 +21,7 @@ npx github:DaniCarnevale/lean-agents init --target both     # both tools, one sh
   - `ui_auditor`: UI and accessibility audits.
   - Any specialists you declare yourself.
 
-  Read-only roles are enforced by the tool's own permissions, not by asking nicely.
+  In Claude Code, read-only roles are enforced by tool permissions. Codex has no per-role limit, so there they rely on their instructions.
 - **Skills for the recurring procedures.**
   - `intake`: turns a request into a short draft to approve.
   - `adr`: records architecture decisions.
@@ -37,8 +37,8 @@ npx github:DaniCarnevale/lean-agents init --target both     # both tools, one sh
 | Project instructions | `CLAUDE.md` | `AGENTS.md` |
 | Subagents | `.claude/agents/*.md` | `.codex/agents/*.toml` |
 | Skills | `.claude/skills/<name>/SKILL.md` (run with `/<name>`) | `.agents/skills/<name>/SKILL.md` (run with `$<name>`) |
-| Settings | `.claude/settings.json` (director model and effort, no nested subagents) | `.codex/config.toml` (director model, `max_threads`, `max_depth = 1`) |
-| Read-only roles | `tools: Read, Grep, Glob` | `sandbox_mode = "read-only"` |
+| Settings | `.claude/settings.json` (director model and effort, no nested subagents) | `.codex/config.toml` (director model and effort, `max_concurrent_threads_per_session`) |
+| Read-only roles | `tools: Read, Grep, Glob` | Instructions only (subagents inherit the session's sandbox) |
 | Default models (`strong` / `balanced` / `fast`) | `opus` / `sonnet` / `haiku` | `gpt-6.1-sol` / `gpt-6-sol` / `gpt-6-luna` |
 
 With `--target both`, `AGENTS.md` holds the instructions and `CLAUDE.md` imports it (`@AGENTS.md`), so both tools follow the same rules. Each tool gets its own agents and skills folders.
@@ -78,7 +78,8 @@ npx lean-agents init
 **In Codex**
 
 - Start `codex` in the project. Project agents load only when you trust the project.
-- Codex starts subagents only when asked, so ask for them: *"spawn reviewer on the current diff"*.
+- Codex starts subagents when you ask or when `AGENTS.md` calls for it. To make sure one runs, ask for it: *"spawn reviewer on the current diff"*.
+- To enforce read-only, set the sandbox on the session (for example `sandbox_mode` under `[codex]`). It applies to the director and every subagent.
 - Run skills with `$intake`, `$verify`, `$adr`.
 
 **In both tools**
@@ -137,7 +138,7 @@ adr = "docs/adr"
 
 [models]
 director = "strong"             # alias, or { claude = "claude-opus-5-5", codex = "gpt-6.1-sol" }
-director_effort = "high"        # minimal | low | medium | high | xhigh | max (mapped per tool; max becomes xhigh in both)
+director_effort = "high"        # low | medium | high | xhigh | max | ultra (mapped per tool, see below)
 
 [models.aliases.claude]         # optional: remap an alias for one tool
 # balanced = "sonnet"
@@ -159,7 +160,7 @@ description = "Payments specialist: provider adapters, idempotency, webhooks and
 focus = ["idempotency keys", "webhook signature checks"]
 model = "strong"
 effort = "high"
-sandbox = "workspace-write"     # or "read-only"
+sandbox = "workspace-write"     # or "read-only" (tool limits in Claude Code, instructions in Codex)
 instructions = "Never log card data."
 # claude_tools = ["Read", "Grep", "Glob", "Bash"]   # optional explicit tool list for Claude Code
 
@@ -170,6 +171,8 @@ instructions = "Never log card data."
 [codex]                         # merged into .codex/config.toml
 # approval_policy = "on-request"
 ```
+
+Effort levels depend on the tool and the model. Codex receives the level as written. Claude Code gets `max` instead of `ultra`, and its `effortLevel` setting, used for the director, gets `xhigh` instead of `max` or `ultra`. `minimal` is still accepted and becomes `low` in both.
 
 Unknown keys are warnings, with a suggestion when one is close: `` `delegaton` does not exist, did you mean `delegation`? ``. `sync` and `init` print them, and `doctor` reports them as LA003, so they fail under `--strict`. `[claude]` and `[codex]` are not checked, because they pass through to each tool.
 
@@ -195,7 +198,7 @@ Unknown keys are warnings, with a suggestion when one is close: `` `delegaton` d
   - an `AGENTS.override.md` that hides `AGENTS.md`;
   - skills in a folder Codex does not scan;
   - unknown `[agents]` keys;
-  - read-only roles without a sandbox;
+  - agent settings that Codex ignores, such as `sandbox_mode`;
   - instructions over the size limit.
 - **Both:**
   - a director protocol that subagents also read, with no line telling them to skip it;

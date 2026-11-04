@@ -62,7 +62,7 @@ test("config changes update managed files; removed roles are deleted", () => {
   assert.equal(plan.find((a) => a.rel === ".codex/agents/explorer.toml").type, "delete");
   assert.ok(!fs.existsSync(path.join(root, ".codex/agents/explorer.toml")));
   assert.equal(plan.find((a) => a.rel === ".codex/config.toml").type, "update");
-  assert.match(read(root, ".codex/config.toml"), /max_threads = 1/);
+  assert.match(read(root, ".codex/config.toml"), /max_concurrent_threads_per_session = 1/);
 });
 
 test("dry run writes nothing", () => {

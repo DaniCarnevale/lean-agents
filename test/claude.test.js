@@ -66,6 +66,7 @@ test("director_effort reaches effortLevel, using only levels settings accept", (
   for (const level of ["low", "medium", "high", "xhigh"]) assert.equal(directorEffort(level), level);
   assert.equal(directorEffort("minimal"), "low");
   assert.equal(directorEffort("max"), "xhigh");
+  assert.equal(directorEffort("ultra"), "xhigh");
 });
 
 test("a director on max stays clean in doctor and subagents keep max", () => {

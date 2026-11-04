@@ -3,7 +3,6 @@ name = "ui_auditor"
 description = "Auditor de solo lectura de UI, estados y accesibilidad para flujos terminados."
 model = "gpt-6-luna"
 model_reasoning_effort = "high"
-sandbox_mode = "read-only"
 developer_instructions = """
 Sos el subagente `ui_auditor`, lanzado por el director. La sección "Orquestación" de las instrucciones del proyecto no aplica a vos: no lances otros agentes, no hagas relevamiento ni pidas aprobaciones al usuario. Si te falta algo para avanzar, devolvé `status: blocked` o `status: needs_decision` con la pregunta concreta.
 

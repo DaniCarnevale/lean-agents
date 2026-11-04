@@ -26,10 +26,10 @@ The same shape is generated for Claude Code and Codex. Only the file formats and
 |---|---|---|
 | Instructions | `CLAUDE.md` (imports `AGENTS.md` when both tools are used) | `AGENTS.md` |
 | Role definition | `.claude/agents/<role>.md`, YAML frontmatter + body | `.codex/agents/<role>.toml` |
-| Read-only | `tools: Read, Grep, Glob` (no Bash, no Agent) | `sandbox_mode = "read-only"` |
-| No nested subagents | `disallowedTools: Agent` + `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` | `max_depth = 1` |
-| Parallelism | stated in the instructions | `[agents] max_threads` |
-| When to delegate | the description (Claude delegates on its own) | the instructions (Codex spawns on request) |
+| Read-only | `tools: Read, Grep, Glob` (no Bash, no Agent) | instructions only: subagents inherit the parent's sandbox |
+| No nested subagents | `disallowedTools: Agent` + `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` | instructions only: Codex documents no depth limit |
+| Parallelism | stated in the instructions | `[agents] max_concurrent_threads_per_session` |
+| When to delegate | the description (Claude delegates on its own) | the instructions (Codex spawns on request or when `AGENTS.md` asks) |
 | Skills | `.claude/skills/` | `.agents/skills/` |
 
 ## Why the director does the work
@@ -48,7 +48,9 @@ Intake turns a request into an approvable draft, and it has to wait for the user
 
 ## Why enforcement and not just prompts
 
-"Do not modify files" in a prompt is a request. A tool allowlist (Claude Code) or a read-only sandbox (Codex) is a guarantee. Roles whose job is to find problems or answer questions are read-only, so an over-eager reviewer cannot "just fix it" and leave the director integrating changes it never planned.
+"Do not modify files" in a prompt is a request. A tool allowlist is a guarantee, so Claude Code's read-only roles get one, and an over-eager reviewer cannot "just fix it" and leave the director integrating changes it never planned.
+
+Codex offers no equivalent per role: a custom agent inherits the parent's sandbox and approvals, and its file cannot change them. Read-only roles there rely on their instructions. To enforce read-only in Codex, set the sandbox on the parent session, which then applies to every agent.
 
 ## Why the subagent guard
 

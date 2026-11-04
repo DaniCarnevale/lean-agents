@@ -12,18 +12,18 @@
 | LA010 | override-shadows-agents-md | error | `AGENTS.override.md` and `AGENTS.md` in the same folder. Codex loads only the override. |
 | LA011 | instructions-too-large | warn / info | The instruction chain for a folder exceeds 32 KiB (`project_doc_max_bytes` default; the rest is dropped) or 16 KiB (info: paid every turn). |
 | LA012 | subagent-guard-missing | warn | Project instructions (AGENTS.md or CLAUDE.md) define a director/orchestration protocol and subagents exist, but nothing tells subagents to skip it. |
-| LA020 | unknown-agents-key | warn | A key under `[agents]` that Codex does not document (known: `max_threads`, `max_depth`, `job_max_runtime_seconds`). Suggests the right key when it can. |
-| LA021 | max-depth-above-one | warn | `max_depth > 1`: subagents can spawn subagents. |
-| LA022 | many-threads | info | `max_threads > 4`. |
-| LA023 | no-thread-limit | info | Custom agents exist but `max_threads` is unset (default 6). |
+| LA020 | unknown-agents-key | warn | A key under `[agents]` that Codex does not document (known: `enabled`, `max_concurrent_threads_per_session`, `max_threads`, `default_subagent_model`, `default_subagent_reasoning_effort`, `interrupt_message`). Suggests the right key when it can. |
+| LA022 | many-threads | info | The thread limit is above 4. |
+| LA023 | no-thread-limit | info | Custom agents exist but no thread limit is set, so Codex chooses it. |
+| LA024 | legacy-thread-key | info | `max_threads` is used; it still works as a legacy alias of `max_concurrent_threads_per_session`. |
 | LA030 | agent-missing-field | error | An agent file without `name`, `description` or `developer_instructions`. |
 | LA031 | duplicate-agent-name | error | Two agent files with the same `name`. |
-| LA032 | invalid-sandbox-mode | error | `sandbox_mode` not in `read-only`, `workspace-write`, `danger-full-access`. |
-| LA033 | full-access-agent | warn | An agent with `danger-full-access`. |
-| LA034 | invalid-reasoning-effort | warn | `model_reasoning_effort` not in `minimal`, `low`, `medium`, `high`, `xhigh`. |
-| LA035 | read-only-role-without-sandbox | warn | Instructions say "do not modify files" (EN/ES patterns) but `sandbox_mode` is not `read-only`. |
+| LA032 | invalid-sandbox-mode | error | `sandbox_mode` in `.codex/config.toml` is not `read-only`, `workspace-write` or `danger-full-access`. |
+| LA033 | full-access-session | warn | `.codex/config.toml` sets `danger-full-access`, and subagents inherit it. |
+| LA034 | invalid-reasoning-effort | warn | `model_reasoning_effort` is not `low`, `medium`, `high`, `xhigh`, `max` or `ultra`. Available levels also depend on the model. |
 | LA036 | director-weaker-than-subagent | info | A subagent's model is on a stronger tier than the director's. |
 | LA037 | unknown-model | info | A model id not in the tier table; tier checks are skipped for it. |
+| LA038 | agent-setting-ignored | warn | A custom agent file sets `sandbox_mode`, `approval_policy`, `model_provider`, `mcp_servers` or `service_tier`. Codex ignores them there, because subagents inherit them from the parent session. |
 | LA040 | skills-in-unscanned-folder | error | `SKILL.md` files under `.codex/skills/`. Codex scans `.agents/skills/`. |
 | LA041 | skill-missing-frontmatter | error | A `SKILL.md` in `.agents/skills/` without `name` and `description`. |
 | LA042 | skill-name-mismatch | warn | Skill `name` differs from its folder name. |
@@ -59,4 +59,4 @@
 
 ## Sources
 
-The rules encode tool behavior as documented in November 2026. For Codex: one instruction file per folder with the override taking precedence, a 32 KiB default for `project_doc_max_bytes`, skill discovery under `.agents/skills`, the `[agents]` keys and custom agent fields. For Claude Code: `CLAUDE.md` taking precedence over `AGENTS.md` unless it imports it, subagent frontmatter fields, skills under `.claude/skills`, and the 200-line guidance for `CLAUDE.md`. If a tool changes, open an issue with a link to its docs.
+The rules encode tool behavior as documented in November 2026. For Codex: one instruction file per folder with the override taking precedence, a 32 KiB default for `project_doc_max_bytes`, skill discovery under `.agents/skills`, the `[agents]` keys, custom agent fields and subagents inheriting the parent's sandbox and approvals. For Claude Code: `CLAUDE.md` taking precedence over `AGENTS.md` unless it imports it, subagent frontmatter fields, skills under `.claude/skills`, and the 200-line guidance for `CLAUDE.md`. If a tool changes, open an issue with a link to its docs.

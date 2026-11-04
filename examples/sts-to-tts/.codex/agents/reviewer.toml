@@ -3,7 +3,6 @@ name = "reviewer"
 description = "Revisor técnico independiente de solo lectura: bugs, regresiones, contratos, seguridad, concurrencia y huecos de pruebas. Usar en checkpoints, no en cada edición."
 model = "gpt-6-sol"
 model_reasoning_effort = "high"
-sandbox_mode = "read-only"
 developer_instructions = """
 Sos el subagente `reviewer`, lanzado por el director. La sección "Orquestación" de las instrucciones del proyecto no aplica a vos: no lances otros agentes, no hagas relevamiento ni pidas aprobaciones al usuario. Si te falta algo para avanzar, devolvé `status: blocked` o `status: needs_decision` con la pregunta concreta.
 

@@ -53,8 +53,20 @@ test("old configs without targets stay Codex-only; unknown tools are rejected", 
 
 test("effort levels map to what each tool accepts", () => {
   const cfg = normalizeConfig({ targets: ["claude", "codex"], roles: { reviewer: { effort: "max" }, explorer: { effort: "minimal" } } });
-  assert.deepEqual(cfg.roles.find((r) => r.name === "reviewer").effort, { claude: "max", codex: "xhigh" });
-  assert.deepEqual(cfg.roles.find((r) => r.name === "explorer").effort, { claude: "low", codex: "minimal" });
+  assert.deepEqual(cfg.roles.find((r) => r.name === "reviewer").effort, { claude: "max", codex: "max" });
+  assert.deepEqual(cfg.roles.find((r) => r.name === "explorer").effort, { claude: "low", codex: "low" });
+  const ultra = normalizeConfig({ targets: ["claude", "codex"], roles: { reviewer: { effort: "ultra" } } });
+  assert.deepEqual(ultra.roles.find((r) => r.name === "reviewer").effort, { claude: "max", codex: "ultra" });
+});
+
+test("generated Codex files use documented settings only", () => {
+  const files = renderAll(configFrom(baseAnswers({ targets: ["codex"] })));
+  const config = parse(files[".codex/config.toml"]);
+  assert.deepEqual(Object.keys(config.agents), ["max_concurrent_threads_per_session"]);
+  assert.equal(config.agents.max_concurrent_threads_per_session, 2);
+  const reviewer = parse(files[".codex/agents/reviewer.toml"]);
+  assert.deepEqual(Object.keys(reviewer).sort(), ["description", "developer_instructions", "model", "model_reasoning_effort", "name"]);
+  assert.match(reviewer.developer_instructions, /do not modify files/);
 });
 
 test("roles can be disabled and custom specialists added", () => {
@@ -74,7 +86,6 @@ test("[codex] settings pass through but cannot override managed keys", () => {
   const out = parse(renderAll(cfg)[".codex/config.toml"]);
   assert.equal(out.approval_policy, "on-request");
   assert.equal(out.mcp_servers.docs.command, "docs-mcp");
-  assert.equal(out.agents.max_depth, 1);
   assert.match(problemsOf({ codex: { agents: { max_threads: 5 } } }).join(), /managed by lean-agents/);
   assert.match(problemsOf({ targets: ["claude"], claude: { model: "opus" } }).join(), /managed by lean-agents/);
   assert.match(problemsOf({ targets: ["claude"], claude: { effortLevel: "low" } }).join(), /\[claude\]\.effortLevel is managed by lean-agents; use models\.director_effort/);
@@ -164,7 +175,7 @@ for (const preset of Object.keys(PRESETS)) {
         if (!rel.endsWith(".toml")) continue;
         const data = parse(content);
         if (rel.startsWith(".codex/agents/")) {
-          for (const field of ["name", "description", "developer_instructions", "sandbox_mode"]) assert.ok(data[field], `${rel} ${field}`);
+          for (const field of ["name", "description", "developer_instructions"]) assert.ok(data[field], `${rel} ${field}`);
         }
       }
       const payments = parse(files[".codex/agents/payments.toml"]);
