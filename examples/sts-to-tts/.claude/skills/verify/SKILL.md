@@ -2,7 +2,7 @@
 name: verify
 description: "Verificar un cambio antes de darlo por terminado: correr los comandos de verificación del proyecto, revisar el diff y reportar qué se comprobó y qué no. Usar al cerrar una feature, un fix o antes de un commit o PR."
 metadata:
-  generator: lean-agents:generated v0.2.0
+  generator: lean-agents:generated v0.3.0
 ---
 
 # Verificación

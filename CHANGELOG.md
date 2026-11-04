@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-11-04
 
 - Claude Code: `reviewer` now has Bash, so it can read diffs and run checks. It still has no edit tools, but Bash can write, so its read-only rule rests on its instructions. Set `claude_tools = ["Read", "Grep", "Glob"]` for a strict reviewer. LA136 now flags only edit tools.
 - README: "real limits" became "clear limits", because Codex has no per-role limits.

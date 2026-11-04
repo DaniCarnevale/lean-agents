@@ -1,4 +1,4 @@
-<!-- lean-agents:generated v0.2.0 — editá orchestration.toml y corré `npx lean-agents sync`; no edites este archivo a mano -->
+<!-- lean-agents:generated v0.3.0 — editá orchestration.toml y corré `npx lean-agents sync`; no edites este archivo a mano -->
 # sts-to-tts-multilingual
 
 POC local de traducción de voz es↔en: captura → STT → traducción → TTS, con perfiles mock, local e hybrid.

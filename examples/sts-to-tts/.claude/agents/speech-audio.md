@@ -1,5 +1,5 @@
 ---
-# lean-agents:generated v0.2.0 — editá orchestration.toml y corré `npx lean-agents sync`
+# lean-agents:generated v0.3.0 — editá orchestration.toml y corré `npx lean-agents sync`
 name: speech_audio
 description: "Especialista del pipeline de voz: STT, traducción, TTS, PCM, VAD, remuestreo, AudioWorklet, colas, backpressure, latencia, RTF y licencias de modelos y voces. Usalo solo cuando el usuario lo pida o cuando el trabajo sea claramente independiente."
 disallowedTools: Agent

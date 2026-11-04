@@ -54,7 +54,7 @@ Requirements: Node.js 20+, plus Claude Code and/or Codex CLI.
 npx github:DaniCarnevale/lean-agents init
 
 # Or keep it as a dev dependency, pinned to a version
-npm i -D github:DaniCarnevale/lean-agents#v0.2.0
+npm i -D github:DaniCarnevale/lean-agents#v0.3.0
 npx lean-agents init
 ```
 

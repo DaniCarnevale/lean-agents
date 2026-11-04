@@ -2,7 +2,7 @@
 name: adr
 description: "Proponer y mantener Architecture Decision Records (ADR) con contexto, decisión, alternativas y consecuencias, más su índice. Usar ante una decisión técnica durable (tecnología, protocolo, estructura) o cuando alguien pregunta por qué el sistema es así. No usar para bugs, tareas o cada commit."
 metadata:
-  generator: lean-agents:generated v0.2.0
+  generator: lean-agents:generated v0.3.0
 ---
 
 # Architecture Decision Records

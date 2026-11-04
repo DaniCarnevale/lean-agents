@@ -2,7 +2,7 @@
 name: contract-first
 description: "Cambiar interfaces compartidas (OpenAPI, JSON Schema, eventos, formatos binarios) empezando por un contrato único y verificable, y después proveedor y consumidores. Usar cuando un cambio cruza frontend/backend o servicios."
 metadata:
-  generator: lean-agents:generated v0.2.0
+  generator: lean-agents:generated v0.3.0
 ---
 
 # Contract-first

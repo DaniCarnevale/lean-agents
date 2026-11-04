@@ -2,7 +2,7 @@
 name: intake
 description: "Convertir un pedido nuevo de cambio en un borrador breve para aprobación (objetivo, alcance, fuera de alcance, aceptación, preguntas) antes de implementar. Usar cuando un pedido cambia comportamiento, alcance o criterios y es ambiguo o grande. No usar para preguntas, estado o revisiones."
 metadata:
-  generator: lean-agents:generated v0.2.0
+  generator: lean-agents:generated v0.3.0
 ---
 
 # Relevamiento de pedidos

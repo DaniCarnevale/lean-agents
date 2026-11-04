@@ -1,5 +1,5 @@
 ---
-# lean-agents:generated v0.2.0 — editá orchestration.toml y corré `npx lean-agents sync`
+# lean-agents:generated v0.3.0 — editá orchestration.toml y corré `npx lean-agents sync`
 name: explorer
 description: "Explorador barato de solo lectura para búsquedas amplias, logs y benchmarks; devuelve conclusiones con rutas. Usalo de forma proactiva en los checkpoints que definen las instrucciones del proyecto."
 tools: Read, Grep, Glob
